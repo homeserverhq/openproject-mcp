@@ -44,7 +44,7 @@ class OpenProjectClient:
             resp = client.request(
                 method, url, headers=self._headers(), params=params, json=json
             )
-        if resp.status_code == 204:
+        if resp.status_code in (202, 204):
             return {}
         resp.raise_for_status()
         return resp.json()
@@ -237,6 +237,15 @@ class OpenProjectClient:
     def get_user_by_id(self, id: int) -> dict[str, Any]:
         return self._get(f"/users/{id}")
 
+    def create_user(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._post("/users", json=payload)
+
+    def update_user(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._patch(f"/users/{id}", json=payload)
+
+    def delete_user(self, id: int) -> dict[str, Any]:
+        return self._delete(f"/users/{id}")
+
     # ─── Groups ───────────────────────────────────────────────────────
 
     def list_groups(
@@ -250,6 +259,15 @@ class OpenProjectClient:
 
     def get_group_by_id(self, id: int) -> dict[str, Any]:
         return self._get(f"/groups/{id}")
+
+    def create_group(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._post("/groups", json=payload)
+
+    def update_group(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._patch(f"/groups/{id}", json=payload)
+
+    def delete_group(self, id: int) -> dict[str, Any]:
+        return self._delete(f"/groups/{id}")
 
     # ─── Statuses ─────────────────────────────────────────────────────
 

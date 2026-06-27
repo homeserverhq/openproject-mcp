@@ -711,6 +711,53 @@ def get_user_by_id(id: int) -> dict[str, Any]:
     return get_client().get_user_by_id(id)
 
 
+@mcp.tool()
+def create_user(
+    login: str,
+    first_name: str,
+    last_name: str,
+    email: str,
+    password: str,
+    language: str = "en",
+    admin: bool = False,
+) -> dict[str, Any]:
+    """Create a user. (required: login, first_name, last_name, email, password)"""
+    return get_client().create_user({
+        "login": login, "firstName": first_name, "lastName": last_name,
+        "email": email, "password": password, "language": language, "admin": admin,
+    })
+
+
+@mcp.tool()
+def update_user(
+    id: int,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    email: str | None = None,
+    language: str | None = None,
+    admin: bool | None = None,
+) -> dict[str, Any]:
+    """Update a user. (required: id)"""
+    payload: dict[str, Any] = {}
+    if first_name is not None:
+        payload["firstName"] = first_name
+    if last_name is not None:
+        payload["lastName"] = last_name
+    if email is not None:
+        payload["email"] = email
+    if language is not None:
+        payload["language"] = language
+    if admin is not None:
+        payload["admin"] = admin
+    return get_client().update_user(id, payload)
+
+
+@mcp.tool()
+def delete_user(id: int) -> dict[str, Any]:
+    """Delete a user. (required: id)"""
+    return get_client().delete_user(id)
+
+
 # ─── Group Tools ──────────────────────────────────────────────────────
 
 @mcp.tool()
@@ -729,6 +776,32 @@ def list_groups(
 def get_group_by_id(id: int) -> dict[str, Any]:
     """Get a single group by ID. (required: id)"""
     return get_client().get_group_by_id(id)
+
+
+@mcp.tool()
+def create_group(
+    name: str,
+) -> dict[str, Any]:
+    """Create a group. (required: name)"""
+    return get_client().create_group({"name": name})
+
+
+@mcp.tool()
+def update_group(
+    id: int,
+    name: str | None = None,
+) -> dict[str, Any]:
+    """Update a group. (required: id)"""
+    payload: dict[str, Any] = {}
+    if name is not None:
+        payload["name"] = name
+    return get_client().update_group(id, payload)
+
+
+@mcp.tool()
+def delete_group(id: int) -> dict[str, Any]:
+    """Delete a group. (required: id)"""
+    return get_client().delete_group(id)
 
 
 # ─── Status Tools ─────────────────────────────────────────────────────

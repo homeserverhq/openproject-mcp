@@ -296,7 +296,6 @@ async def async_main() -> None:
         ("Priorities", "list_priorities", "get_priority_by_id"),
         ("Roles", "list_roles", "get_role_by_id"),
         ("Users", "list_users", "get_user_by_id"),
-        ("Groups", "list_groups", "get_group_by_id"),
         ("Principals", "list_principals", "get_principal_by_id"),
     ]
 
@@ -321,7 +320,7 @@ async def async_main() -> None:
     sid_status = seed.get("statuses_id", 1)
     sid_type = seed.get("types_id", 1)
     sid_priority = seed.get("priorities_id", 1)
-    sid_role = seed.get("roles_id", 1)
+    sid_role = 5  # Project admin — first valid project role in seeded list
     sid_user = seed.get("users_id", 4)
 
     # Discover existing project IDs for use in read-only queries
@@ -518,11 +517,16 @@ async def async_main() -> None:
         await asyncio.sleep(0.3)
         await tr.run(session, "verify-delete", "get_version_by_id", {"id": vid} if vid else {}, expect="error")
 
-    # ────────── MEMBERSHIP ──────────
-    if "create_membership" in tool_names and "delete_membership" in tool_names:
+    # ────────── GROUP + MEMBERSHIP ──────────
+    if "create_group" in tool_names and "delete_group" in tool_names:
+        gn = make_name("group")
+        gr = await tr.run(session, "create", "create_group", {"name": gn})
+        gid = extract_content(gr).get("id") if isinstance(extract_content(gr), dict) else None
+        await tr.run(session, "get group", "get_group_by_id", {"id": gid} if gid else {})
+
         mc = await tr.run(session, "create", "create_membership", {
-            "project_id": store.get("persistent_project_id", 1), "principal_id": sid_user, "role_ids": [sid_role],
-        }, expect="success")
+            "project_id": store.get("persistent_project_id", 1), "principal_id": gid, "role_ids": [sid_role],
+        } if gid else {}, expect="success")
         mid = extract_content(mc).get("id") if isinstance(extract_content(mc), dict) else None
         await tr.run(session, "list", "list_memberships", {}, expect="success")
         await tr.run(session, "get", "get_membership_by_id", {"id": mid} if mid else {})
@@ -530,6 +534,7 @@ async def async_main() -> None:
         await tr.run(session, "delete", "delete_membership", {"id": mid} if mid else {})
         await asyncio.sleep(0.3)
         await tr.run(session, "verify-delete", "get_membership_by_id", {"id": mid} if mid else {}, expect="error")
+        await tr.run(session, "delete group", "delete_group", {"id": gid} if gid else {})
 
     # ────────── WORK PACKAGE ──────────
     if "create_work_package" in tool_names:
@@ -728,6 +733,7 @@ async def async_main() -> None:
         "grids": {"list_tool": "list_grids", "match_field": "page"},
         "time_entries": {"list_tool": "list_time_entries", "match_field": "comment"},
         "recurring_meetings": {"list_tool": "list_recurring_meetings", "match_field": "title"},
+        "groups": {"list_tool": "list_groups", "match_field": "name"},
     }
 
     leak_found = False
@@ -755,6 +761,7 @@ async def async_main() -> None:
                         "news": "delete_news", "grids": "delete_grid",
                         "time_entries": "delete_time_entry",
                         "recurring_meetings": "delete_recurring_meeting",
+                        "groups": "delete_group",
                     }
                     dt = del_map.get(domain)
                     if dt and art_id:
