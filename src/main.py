@@ -30,164 +30,164 @@ mcp = FastMCP("OpenProject MCP Server")
 
 # ─── Pydantic contract models ─────────────────────────────────────────
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class WPCreate(BaseModel):
-    subject: str
-    project_id: int
-    type_id: int
-    description: str = ""
-    status_id: int | None = None
-    priority_id: int | None = None
-    assignee_id: int | None = None
-    responsible_id: int | None = None
-    version_id: int | None = None
-    parent_id: int | None = None
-    start_date: str | None = None
-    due_date: str | None = None
-    estimated_time: str | None = None
-    duration: str | None = None
-    schedule_manually: bool = False
-    ignore_non_working_days: bool = False
-    category_id: int | None = None
+    subject: str = Field(description="Title of the work package")
+    project_id: int = Field(description="ID of the project this work package belongs to")
+    type_id: int = Field(description="ID of the type (e.g. Task, Milestone)")
+    description: str = Field(default="", description="Description text (supports markdown mentions like @user#ID)")
+    status_id: int | None = Field(default=None, description="ID of the status (e.g. New, In Progress)")
+    priority_id: int | None = Field(default=None, description="ID of the priority (e.g. High, Normal)")
+    assignee_id: int | None = Field(default=None, description="ID of the user assigned to this work package")
+    responsible_id: int | None = Field(default=None, description="ID of the user responsible for this work package")
+    version_id: int | None = Field(default=None, description="ID of the version this work package belongs to")
+    parent_id: int | None = Field(default=None, description="ID of the parent work package for hierarchy")
+    start_date: str | None = Field(default=None, description="Start date in YYYY-MM-DD format")
+    due_date: str | None = Field(default=None, description="Due date in YYYY-MM-DD format")
+    estimated_time: str | None = Field(default=None, description="Estimated time in ISO 8601 duration format (e.g. PT4H)")
+    duration: str | None = Field(default=None, description="Duration in ISO 8601 format (e.g. P3D for 3 days)")
+    schedule_manually: bool = Field(default=False, description="If true, scheduling is manual instead of automatic")
+    ignore_non_working_days: bool = Field(default=False, description="If true, ignore non-working days in scheduling")
+    category_id: int | None = Field(default=None, description="ID of the category")
 
 
 class WPUpdate(BaseModel):
-    subject: str | None = None
-    description: str | None = None
-    status_id: int | None = None
-    priority_id: int | None = None
-    assignee_id: int | None = None
-    responsible_id: int | None = None
-    version_id: int | None = None
-    parent_id: int | None = None
-    start_date: str | None = None
-    due_date: str | None = None
-    estimated_time: str | None = None
-    duration: str | None = None
-    schedule_manually: bool | None = None
-    ignore_non_working_days: bool | None = None
-    percentage_done: int | None = None
-    lock_version: int | None = None
+    subject: str | None = Field(default=None, description="Title of the work package")
+    description: str | None = Field(default=None, description="Description text (supports markdown mentions)")
+    status_id: int | None = Field(default=None, description="ID of the status (e.g. New, In Progress)")
+    priority_id: int | None = Field(default=None, description="ID of the priority (e.g. High, Normal)")
+    assignee_id: int | None = Field(default=None, description="ID of the assigned user")
+    responsible_id: int | None = Field(default=None, description="ID of the responsible user")
+    version_id: int | None = Field(default=None, description="ID of the version")
+    parent_id: int | None = Field(default=None, description="ID of the parent work package")
+    start_date: str | None = Field(default=None, description="Start date in YYYY-MM-DD format")
+    due_date: str | None = Field(default=None, description="Due date in YYYY-MM-DD format")
+    estimated_time: str | None = Field(default=None, description="Estimated time in ISO 8601 format (e.g. PT4H)")
+    duration: str | None = Field(default=None, description="Duration in ISO 8601 format (e.g. P3D)")
+    schedule_manually: bool | None = Field(default=None, description="Enable manual scheduling")
+    ignore_non_working_days: bool | None = Field(default=None, description="Ignore non-working days")
+    percentage_done: int | None = Field(default=None, description="Completion percentage (0-100)")
+    lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
 class ProjectCreate(BaseModel):
-    name: str
-    identifier: str
-    description: str = ""
-    public: bool = True
-    active: bool = True
-    status_id: str | None = None
-    parent_id: int | None = None
-    status_explanation: str = ""
+    name: str = Field(description="Project name")
+    identifier: str = Field(description="Unique URL-safe project identifier")
+    description: str = Field(default="", description="Project description")
+    public: bool = Field(default=True, description="Whether the project is publicly visible")
+    active: bool = Field(default=True, description="Whether the project is active")
+    status_id: str | None = Field(default=None, description="Status code (e.g. 'on_track', 'at_risk', 'off_track')")
+    parent_id: int | None = Field(default=None, description="ID of the parent project")
+    status_explanation: str = Field(default="", description="Explanation of the project status")
 
 
 class ProjectUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    public: bool | None = None
-    active: bool | None = None
-    status_id: str | None = None
-    parent_id: int | None = None
-    status_explanation: str | None = None
-    lock_version: int | None = None
+    name: str | None = Field(default=None, description="Project name")
+    description: str | None = Field(default=None, description="Project description")
+    public: bool | None = Field(default=None, description="Whether the project is publicly visible")
+    active: bool | None = Field(default=None, description="Whether the project is active")
+    status_id: str | None = Field(default=None, description="Status code (e.g. 'on_track', 'at_risk', 'off_track')")
+    parent_id: int | None = Field(default=None, description="ID of the parent project")
+    status_explanation: str | None = Field(default=None, description="Explanation of the project status")
+    lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
 class VersionCreate(BaseModel):
-    name: str
-    project_id: int
-    description: str = ""
-    status: str = "open"
-    sharing: str = "none"
-    start_date: str | None = None
-    end_date: str | None = None
+    name: str = Field(description="Version name")
+    project_id: int = Field(description="ID of the project this version belongs to")
+    description: str = Field(default="", description="Version description")
+    status: str = Field(default="open", description="Status: open, locked, or closed")
+    sharing: str = Field(default="none", description="Sharing mode: none, descendants, hierarchy, tree, or system")
+    start_date: str | None = Field(default=None, description="Start date in YYYY-MM-DD format")
+    end_date: str | None = Field(default=None, description="Due date in YYYY-MM-DD format")
 
 
 class VersionUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    status: str | None = None
-    sharing: str | None = None
-    start_date: str | None = None
-    end_date: str | None = None
-    lock_version: int | None = None
+    name: str | None = Field(default=None, description="Version name")
+    description: str | None = Field(default=None, description="Version description")
+    status: str | None = Field(default=None, description="Status: open, locked, or closed")
+    sharing: str | None = Field(default=None, description="Sharing mode: none, descendants, hierarchy, tree, or system")
+    start_date: str | None = Field(default=None, description="Start date in YYYY-MM-DD format")
+    end_date: str | None = Field(default=None, description="Due date in YYYY-MM-DD format")
+    lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
 class MembershipCreate(BaseModel):
-    project_id: int
-    principal_id: int
-    role_ids: list[int]
+    project_id: int = Field(description="ID of the project")
+    principal_id: int = Field(description="ID of the user or group to add as member")
+    role_ids: list[int] = Field(description="List of role IDs to assign to the member")
 
 
 class MembershipUpdate(BaseModel):
-    project_id: int | None = None
-    principal_id: int | None = None
-    role_ids: list[int] | None = None
-    lock_version: int | None = None
+    project_id: int | None = Field(default=None, description="ID of the project")
+    principal_id: int | None = Field(default=None, description="ID of the user or group")
+    role_ids: list[int] | None = Field(default=None, description="List of role IDs to assign")
+    lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
 class MeetingCreate(BaseModel):
-    title: str
-    project_id: int
-    start_time: str
-    end_time: str
-    location: str = ""
-    notify: bool = True
+    title: str = Field(description="Meeting title")
+    project_id: int = Field(description="ID of the project this meeting belongs to")
+    start_time: str = Field(description="Start time in ISO 8601 format (e.g. 2026-07-01T10:00:00Z)")
+    end_time: str = Field(description="End time in ISO 8601 format (e.g. 2026-07-01T11:00:00Z)")
+    location: str = Field(default="", description="Meeting location or video call link")
+    notify: bool = Field(default=True, description="Whether to notify participants")
 
 
 class MeetingUpdate(BaseModel):
-    title: str | None = None
-    start_time: str | None = None
-    end_time: str | None = None
-    location: str | None = None
-    notify: bool | None = None
-    lock_version: int | None = None
+    title: str | None = Field(default=None, description="Meeting title")
+    start_time: str | None = Field(default=None, description="Start time in ISO 8601 format")
+    end_time: str | None = Field(default=None, description="End time in ISO 8601 format")
+    location: str | None = Field(default=None, description="Meeting location or video call link")
+    notify: bool | None = Field(default=None, description="Whether to notify participants")
+    lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
 class TimeEntryCreate(BaseModel):
-    project_id: int
-    work_package_id: int | None = None
-    user_id: int | None = None
-    activity_id: int | None = None
-    hours: str
-    spent_on: str | None = None
-    comment: str = ""
+    project_id: int = Field(description="ID of the project")
+    work_package_id: int | None = Field(default=None, description="ID of the work package this time is logged against")
+    user_id: int | None = Field(default=None, description="ID of the user who performed the work")
+    activity_id: int | None = Field(default=None, description="ID of the activity type")
+    hours: str = Field(description="Time spent in ISO 8601 duration format (e.g. PT2H30M)")
+    spent_on: str | None = Field(default=None, description="Date the work was performed in YYYY-MM-DD format")
+    comment: str = Field(default="", description="Comment describing the work done")
 
 
 class TimeEntryUpdate(BaseModel):
-    project_id: int | None = None
-    work_package_id: int | None = None
-    hours: str | None = None
-    spent_on: str | None = None
-    comment: str | None = None
-    lock_version: int | None = None
+    project_id: int | None = Field(default=None, description="ID of the project")
+    work_package_id: int | None = Field(default=None, description="ID of the work package")
+    hours: str | None = Field(default=None, description="Time spent in ISO 8601 duration format")
+    spent_on: str | None = Field(default=None, description="Date in YYYY-MM-DD format")
+    comment: str | None = Field(default=None, description="Comment describing the work done")
+    lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
 class NewsCreate(BaseModel):
-    project_id: int
-    title: str
-    summary: str = ""
-    description: str = ""
+    project_id: int = Field(description="ID of the project this news belongs to")
+    title: str = Field(description="News title")
+    summary: str = Field(default="", description="Short summary of the news")
+    description: str = Field(default="", description="Full news content in markdown format")
 
 
 class NewsUpdate(BaseModel):
-    title: str | None = None
-    summary: str | None = None
-    description: str | None = None
-    lock_version: int | None = None
+    title: str | None = Field(default=None, description="News title")
+    summary: str | None = Field(default=None, description="Short summary of the news")
+    description: str | None = Field(default=None, description="Full news content in markdown format")
+    lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
 class GridCreate(BaseModel):
-    page: str
-    row_count: int = 5
+    page: str = Field(description="Grid page identifier (e.g. 'overview', 'project-overview')")
+    row_count: int = Field(default=5, description="Number of rows in the grid")
 
 
 class GridUpdate(BaseModel):
-    page: str | None = None
-    row_count: int | None = None
-    widgets: list[dict[str, Any]] | None = None
-    lock_version: int | None = None
+    page: str | None = Field(default=None, description="Grid page identifier")
+    row_count: int | None = Field(default=None, description="Number of rows in the grid")
+    widgets: str | None = Field(default=None, description="JSON string of widget configuration array")
+    lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
 # ─── Helper ───────────────────────────────────────────────────────────
@@ -1663,17 +1663,18 @@ def update_grid(
     id: int,
     page: str | None = None,
     row_count: int | None = None,
-    widgets: list[dict[str, Any]] | None = None,
+    widgets: str | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
     """Update a grid. (required: id)"""
+    import json
     payload: dict[str, Any] = {}
     if page is not None:
         payload["page"] = page
     if row_count is not None:
         payload["rowCount"] = row_count
     if widgets is not None:
-        payload["widgets"] = widgets
+        payload["widgets"] = json.loads(widgets)
     if lock_version is not None:
         payload["lockVersion"] = lock_version
     return get_client().update_grid(id, payload)
