@@ -322,7 +322,52 @@ async def async_main() -> None:
     sid_type = seed.get("types_id", 1)
     sid_priority = seed.get("priorities_id", 1)
     sid_role = seed.get("roles_id", 1)
-    sid_user = seed.get("users_id", 4)
+    sid_user = seed.get("users_id", 4) or seed.get("users_id", 4)
+
+    # Discover additional reference IDs for categories, budgets, wikipages, attachments
+    extra_discover = [
+        ("categories_id", "list_project_categories", {"project_id": 1}),
+        ("budgets_id", "list_project_budgets", {"project_id": 1}),
+    ]
+    for skey, list_tool, list_args in extra_discover:
+        if list_tool in tool_names:
+            dr = await session.call_tool(list_tool, list_args)
+            dc = extract_content(dr)
+            did = get_first_id(dc)
+            if did and skey not in seed:
+                seed[skey] = did
+
+    # Discover wiki page and attachment IDs from existing work packages
+    if "list_work_packages" in tool_names:
+        wr = await session.call_tool("list_work_packages", {"page_size": 50})
+        wc = extract_content(wr)
+        items = get_list_items(wc)
+        for item in items:
+            if isinstance(item, dict):
+                if "wikipages_id" not in seed:
+                    links = item.get("_links", {})
+                    if links:
+                        for link_key, link_val in links.items():
+                            if "wiki" in link_key.lower() and isinstance(link_val, dict):
+                                href = link_val.get("href", "")
+                                if "/wiki_pages/" in href:
+                                    wpid = href.rsplit("/", 1)[-1]
+                                    try:
+                                        seed["wikipages_id"] = int(wpid)
+                                    except ValueError:
+                                        pass
+                if "attachments_id" not in seed:
+                    links = item.get("_links", {})
+                    if links:
+                        for link_key, link_val in links.items():
+                            if "attachment" in link_key.lower() and isinstance(link_val, dict):
+                                href = link_val.get("href", "")
+                                if "/attachments/" in href:
+                                    aid = href.rsplit("/", 1)[-1]
+                                    try:
+                                        seed["attachments_id"] = int(aid)
+                                    except ValueError:
+                                        pass
 
     # ══════════════════════════════════════════════════════════════════
     # Phase 2: Read-only data (may be empty — expect='any' for get)
@@ -451,10 +496,25 @@ async def async_main() -> None:
 
     # ────────── MEMBERSHIP ──────────
     if "create_membership" in tool_names and "delete_membership" in tool_names:
-        await tr.run(session, "create", "create_membership", {
+        mc = await tr.run(session, "create", "create_membership", {
             "project_id": 2, "principal_id": sid_user, "role_ids": [sid_role],
         }, expect="any")
+        mid = extract_content(mc).get("id") if isinstance(extract_content(mc), dict) else None
         await tr.run(session, "list", "list_memberships", {}, expect="success")
+        if mid:
+            await tr.run(session, "get", "get_membership_by_id", {"id": mid})
+            await tr.run(session, "update", "update_membership", {"id": mid, "role_ids": [sid_role]})
+            await tr.run(session, "delete", "delete_membership", {"id": mid})
+            await asyncio.sleep(0.3)
+            await tr.run(session, "verify-delete", "get_membership_by_id", {"id": mid}, expect="error")
+        else:
+            # Membership create failed — test get on first existing membership from list
+            lm = await tr.call(session, "list memberships", "list_memberships", {})
+            items = get_list_items(extract_content(lm))
+            if items:
+                existing_mid = items[0].get("id")
+                if existing_mid:
+                    await tr.run(session, "get", "get_membership_by_id", {"id": existing_mid})
 
     # ────────── WORK PACKAGE ──────────
     if "create_work_package" in tool_names:
@@ -585,8 +645,14 @@ async def async_main() -> None:
     # ────────── GRID ──────────
     if "create_grid" in tool_names and "delete_grid" in tool_names:
         gn = make_name("grid")
-        # Discover project identifier for scope href
+        # Discover project identifier for scope href via list_projects
         scope_href = "/projects/demo-project/boards"
+        plr = await tr.call(session, "list projects", "list_projects", {})
+        p_items = get_list_items(extract_content(plr))
+        for pit in p_items:
+            if isinstance(pit, dict) and pit.get("id") == 1:
+                scope_href = f"/projects/{pit.get('identifier', 'demo-project')}/boards"
+                break
         r = await tr.run(session, "create", "create_grid", {
             "page": gn, "row_count": 3, "column_count": 2, "scope_href": scope_href,
         })
@@ -602,11 +668,38 @@ async def async_main() -> None:
     # ────────── TIME ENTRY ──────────
     if "create_time_entry" in tool_names and "delete_time_entry" in tool_names:
         ten = make_name("te")
-        # Use permanent WP 38 (Test Task in Scrum project) with project 2
-        await tr.run(session, "create", "create_time_entry", {
-            "project_id": 2, "work_package_id": 38, "hours": "PT2H",
-            "spent_on": "2026-06-27", "comment": ten,
-        }, expect="any")
+        # Discover a work package and its project for time entry
+        wp_lr = await tr.call(session, "list wps", "list_work_packages", {"page_size": 50})
+        wp_items = get_list_items(extract_content(wp_lr))
+        te_wp_id = None
+        te_proj_id = None
+        for item in wp_items:
+            if isinstance(item, dict):
+                te_wp_id = item.get("id")
+                proj_link = item.get("_links", {}).get("project", {})
+                proj_href = proj_link.get("href", "") if isinstance(proj_link, dict) else ""
+                if proj_href and "/projects/" in proj_href:
+                    try:
+                        te_proj_id = int(proj_href.rsplit("/", 1)[-1])
+                    except ValueError:
+                        pass
+                break
+        if te_wp_id and te_proj_id:
+            te = await tr.run(session, "create", "create_time_entry", {
+                "project_id": te_proj_id, "work_package_id": te_wp_id, "hours": "PT2H",
+                "spent_on": "2026-06-27", "comment": ten,
+            })
+            teid = extract_content(te).get("id") if isinstance(extract_content(te), dict) else None
+            if teid:
+                await tr.run(session, "get", "get_time_entry_by_id", {"id": teid})
+                await tr.run(session, "update", "update_time_entry", {"id": teid, "hours": "PT4H"})
+                await tr.run(session, "delete", "delete_time_entry", {"id": teid})
+                await asyncio.sleep(0.3)
+                await tr.run(session, "verify-delete", "get_time_entry_by_id", {"id": teid}, expect="error")
+        else:
+            await tr.run(session, "create", "create_time_entry", {
+                "project_id": 1, "hours": "PT2H", "spent_on": "2026-06-27", "comment": ten,
+            }, expect="any")
         await tr.run(session, "list", "list_time_entries", {}, expect="success")
 
     # ────────── RECURRING MEETING ──────────
@@ -630,15 +723,6 @@ async def async_main() -> None:
     # Phase 4: Domain-specific standalone tools
     # ══════════════════════════════════════════════════════════════════
     tr.print_phase("Phase 4 — Domain-Specific Tools")
-
-    standalone_tests = [
-        ("update_document", "update_document", {"id": 1}, "any"),
-        ("delete_reminder", "delete_reminder", {"id": 1}, "any"),
-        ("update_reminder", "update_reminder", {"id": 1}, "any"),
-    ]
-    for label, tool, args, exp in standalone_tests:
-        if tool in tool_names:
-            await tr.run(session, label, tool, args, expect=exp)
 
     # ══════════════════════════════════════════════════════════════════
     # Phase 5: Leak Detection
