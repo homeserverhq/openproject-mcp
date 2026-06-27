@@ -56,6 +56,7 @@ docker run -d --name openproject-mcp \
     -e MCP_SERVER_PORT=80 \
     -e ALLOW_ALL_AGGREGATE=false \
     openproject-mcp:latest
+```
 
 The MCP server serves at `http://openproject-mcp:80/mcp` (Streamable HTTP).
 
