@@ -781,20 +781,31 @@ def get_group_by_id(id: int) -> dict[str, Any]:
 @mcp.tool()
 def create_group(
     name: str,
+    member_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     """Create a group. (required: name)"""
-    return get_client().create_group({"name": name})
+    payload: dict[str, Any] = {"name": name}
+    if member_ids:
+        payload["_links"] = {
+            "members": [{"href": f"/api/v3/users/{uid}"} for uid in member_ids]
+        }
+    return get_client().create_group(payload)
 
 
 @mcp.tool()
 def update_group(
     id: int,
     name: str | None = None,
+    member_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     """Update a group. (required: id)"""
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
+    if member_ids is not None:
+        payload["_links"] = {
+            "members": [{"href": f"/api/v3/users/{uid}"} for uid in member_ids]
+        }
     return get_client().update_group(id, payload)
 
 

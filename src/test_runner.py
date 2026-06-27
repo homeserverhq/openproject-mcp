@@ -420,6 +420,16 @@ async def async_main() -> None:
     nid = await _get_id("notification", "list_notifications")
     await tr.run(session, "get notification", "get_notification_by_id", {"id": nid} if nid else {})
 
+    # Discover a non-working day date and test get_non_working_day_by_date
+    nwd_date = None
+    if "list_non_working_days" in tool_names:
+        nwd_r = await session.call_tool("list_non_working_days", {"page_size": 20})
+        nwd_c = extract_content(nwd_r)
+        nwd_items = get_list_items(nwd_c)
+        if nwd_items and isinstance(nwd_items[0], dict):
+            nwd_date = nwd_items[0].get("date")
+    await tr.run(session, "get non-working day", "get_non_working_day_by_date", {"date": nwd_date} if nwd_date else {})
+
     # Fixed: weekday, paginated, and date range tests
     fixed_tests = [
         ("get_week_day_mon", "get_week_day_by_number", {"day": 1}, "success"),
@@ -481,13 +491,26 @@ async def async_main() -> None:
         await asyncio.sleep(0.3)
         await tr.run(session, "verify-delete", "get_project_by_id", {"id": pid} if pid else {}, expect="error")
 
-    # ────────── CATEGORIES & BUDGETS (from persistent project) ──────────
-    ppid = store.get("persistent_project_id")
-    if ppid:
-        cid = await _get_id("category", "list_project_categories", {"project_id": ppid})
-        await tr.run(session, "get category", "get_category_by_id", {"id": cid} if cid else {})
-        bid = await _get_id("budget", "list_project_budgets", {"project_id": ppid})
-        await tr.run(session, "get budget", "get_budget_by_id", {"id": bid} if bid else {})
+    # ────────── CATEGORIES & BUDGETS (read-only, scan up to 10 projects) ──────────
+    cid = None
+    bid = None
+    if "list_projects" in tool_names:
+        plr = await session.call_tool("list_projects", {"page_size": 10})
+        plc = extract_content(plr)
+        for proj in get_list_items(plc):
+            if not isinstance(proj, dict):
+                continue
+            pid = proj.get("id")
+            if not pid:
+                continue
+            if cid is None:
+                cid = await _get_id("category", "list_project_categories", {"project_id": pid})
+            if bid is None:
+                bid = await _get_id("budget", "list_project_budgets", {"project_id": pid})
+            if cid is not None and bid is not None:
+                break
+    await tr.run(session, "get category", "get_category_by_id", {"id": cid} if cid else {})
+    await tr.run(session, "get budget", "get_budget_by_id", {"id": bid} if bid else {})
 
     # ────────── VERSION ──────────
     if "create_version" in tool_names and "delete_version" in tool_names:
@@ -507,12 +530,33 @@ async def async_main() -> None:
         await asyncio.sleep(0.3)
         await tr.run(session, "verify-delete", "get_version_by_id", {"id": vid} if vid else {}, expect="error")
 
+    # ────────── USER ──────────
+    suid = None
+    if "create_user" in tool_names and "delete_user" in tool_names:
+        sun = make_name("usr")
+        sr = await tr.run(session, "create", "create_user", {"login": sun, "first_name": "Test", "last_name": "User", "email": f"{sun}@test.com", "password": "Passw0rd!!!", "admin": False})
+        suid = extract_content(sr).get("id") if isinstance(extract_content(sr), dict) else None
+        await tr.run(session, "get user", "get_user_by_id", {"id": suid} if suid else {})
+        if suid:
+            sr2 = await tr.call(session, "get lock", "get_user_by_id", {"id": suid} if suid else {})
+            srd = extract_content(sr2)
+            lv = srd.get("lockVersion") if isinstance(srd, dict) else None
+            up = {"id": suid, "first_name": "Updated"} if suid else {}
+            if lv is not None:
+                up["lock_version"] = lv
+            await tr.run(session, "update", "update_user", up)
+
     # ────────── GROUP + MEMBERSHIP ──────────
     if "create_group" in tool_names and "delete_group" in tool_names:
         gn = make_name("group")
+        mid_args = {"member_ids": [suid]} if suid else {}
         gr = await tr.run(session, "create", "create_group", {"name": gn})
         gid = extract_content(gr).get("id") if isinstance(extract_content(gr), dict) else None
         await tr.run(session, "get group", "get_group_by_id", {"id": gid} if gid else {})
+        upd_args = {"id": gid, "name": "upd-" + gn} if gid else {}
+        if suid and gid:
+            upd_args["member_ids"] = [suid]
+        await tr.run(session, "update group", "update_group", upd_args)
 
         mc = await tr.run(session, "create", "create_membership", {
             "project_id": store.get("persistent_project_id"), "principal_id": gid, "role_ids": [sid_role],
@@ -545,9 +589,9 @@ async def async_main() -> None:
         act_id = acts[0].get("id") if isinstance(act_data, dict) and (acts := get_list_items(act_data)) else None
 
         await tr.run(session, "get activities", "get_work_package_activities", {"id": wpid} if wpid else {})
-        await tr.run(session, "add watcher", "add_work_package_watcher", {"id": wpid, "user_id": sid_user} if wpid else {})
+        await tr.run(session, "add watcher", "add_work_package_watcher", {"id": wpid, "user_id": suid} if wpid and suid else {})
         await tr.run(session, "get watchers", "get_work_package_watchers", {"id": wpid} if wpid else {})
-        await tr.run(session, "remove watcher", "remove_work_package_watcher", {"id": wpid, "user_id": sid_user} if wpid else {})
+        await tr.run(session, "remove watcher", "remove_work_package_watcher", {"id": wpid, "user_id": suid} if wpid and suid else {})
 
         # Second WP for relation target (self-relation not allowed)
         wp2 = await tr.call(session, "create related wp", "create_work_package", {
@@ -585,6 +629,12 @@ async def async_main() -> None:
         await tr.run(session, "delete", "delete_work_package", {"id": wpid} if wpid else {})
         await asyncio.sleep(0.3)
         await tr.run(session, "verify-delete", "get_work_package_by_id", {"id": wpid} if wpid else {}, expect="error")
+
+        # Delete test user (used for group member + watcher)
+        if suid:
+            await tr.run(session, "delete user", "delete_user", {"id": suid})
+            await asyncio.sleep(0.3)
+            await tr.run(session, "verify user delete", "get_user_by_id", {"id": suid}, expect="error")
 
     # ────────── MEETING ──────────
     if "create_meeting" in tool_names:
