@@ -344,34 +344,19 @@ async def async_main() -> None:
     store["persistent_project_id"] = ppid
     store["project_ident"] = ppn if ppid else None
 
-    # Discover wiki/attachment IDs from existing work packages
-    wr = await session.call_tool("list_work_packages", {"page_size": 50})
-    wc = extract_content(wr)
-    items = get_list_items(wc)
-    for item in items:
-        if isinstance(item, dict):
-            if "wikipages_id" not in seed:
-                links = item.get("_links", {})
-                for link_key, link_val in links.items():
-                    if "wiki" in link_key.lower() and isinstance(link_val, dict):
-                        href = link_val.get("href", "")
-                        if "/wiki_pages/" in href:
-                            wpid = href.rsplit("/", 1)[-1]
-                            try:
-                                seed["wikipages_id"] = int(wpid)
-                            except ValueError:
-                                pass
-            if "attachments_id" not in seed:
-                links = item.get("_links", {})
-                for link_key, link_val in links.items():
-                    if "attachment" in link_key.lower() and isinstance(link_val, dict):
-                        href = link_val.get("href", "")
-                        if "/attachments/" in href:
-                            aid = href.rsplit("/", 1)[-1]
-                            try:
-                                seed["attachments_id"] = int(aid)
-                            except ValueError:
-                                pass
+    # Sequential probe for wiki page IDs (try 1-5, no list endpoint exists)
+    for wid in range(1, 6):
+        wr = await session.call_tool("get_wiki_page_by_id", {"id": wid})
+        if not is_error(wr):
+            seed["wikipages_id"] = wid
+            break
+
+    # Sequential probe for attachment IDs (try 1-5, no list endpoint exists)
+    for aid in range(1, 6):
+        ar = await session.call_tool("get_attachment_by_id", {"id": aid})
+        if not is_error(ar):
+            seed["attachments_id"] = aid
+            break
 
     # ══════════════════════════════════════════════════════════════════
     # Phase 2: Read-only data (may be empty — expect='any' for get)
