@@ -315,7 +315,7 @@ async def async_main() -> None:
             seed[label.lower().rstrip("s") + "_id"] = first_id
             await tr.run(session, label, get_tool, {"id": first_id})
         else:
-            await tr.run(session, label, get_tool, {"id": 1}, expect="any")
+            await tr.run(session, label, get_tool, {"id": 1}, expect="success")
 
     # Extract well-known seed values
     sid_status = seed.get("statuses_id", 1)
@@ -476,74 +476,60 @@ async def async_main() -> None:
             "name": pn, "identifier": pn, "description": "Test", "public": True, "active": True,
         })
         pid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
-        if pid:
-            store["project_id"] = pid
 
         await tr.run(session, "list", "list_projects", {}, expect="success")
-        await tr.run(session, "get", "get_project_by_id", {"id": pid}, expect="any" if not pid else "success")
+        await tr.run(session, "get", "get_project_by_id", {"id": pid} if pid else {})
 
-        if pid:
-            cpy_name = pn + "-cpy"
-            await tr.run(session, "copy", "copy_project", {"id": pid, "name": cpy_name, "identifier": pn + "_cpy"}, expect="any")
-            for attempt in range(10):
-                await asyncio.sleep(1)
-                lr = await session.call_tool("list_projects", {"page_size": 100})
-                found = find_match(extract_content(lr), "name", cpy_name)
-                if found and "delete_project" in tool_names:
-                    await session.call_tool("delete_project", {"id": found.get("id")})
-                    break
-            g = await tr.call(session, "get lock", "get_project_by_id", {"id": pid})
-            gd = extract_content(g)
-            lv = gd.get("lockVersion") if isinstance(gd, dict) else None
-            up = {"id": pid, "name": "upd-" + pn}
-            if lv is not None:
-                up["lock_version"] = lv
-            await tr.run(session, "update", "update_project", up)
-            await tr.run(session, "delete", "delete_project", {"id": pid})
-            await asyncio.sleep(0.3)
-            await tr.run(session, "verify-delete", "get_project_by_id", {"id": pid}, expect="error")
+        cpy_name = pn + "-cpy"
+        await tr.run(session, "copy", "copy_project", {"id": pid, "name": cpy_name, "identifier": pn + "_cpy"} if pid else {})
+        for attempt in range(10):
+            await asyncio.sleep(1)
+            lr = await session.call_tool("list_projects", {"page_size": 100})
+            found = find_match(extract_content(lr), "name", cpy_name)
+            if found:
+                await session.call_tool("delete_project", {"id": found.get("id")})
+                break
+        g = await tr.call(session, "get lock", "get_project_by_id", {"id": pid} if pid else {})
+        gd = extract_content(g)
+        lv = gd.get("lockVersion") if isinstance(gd, dict) else None
+        up = {"id": pid, "name": "upd-" + pn} if pid else {}
+        if lv is not None and pid:
+            up["lock_version"] = lv
+        await tr.run(session, "update", "update_project", up)
+        await tr.run(session, "delete", "delete_project", {"id": pid} if pid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify-delete", "get_project_by_id", {"id": pid} if pid else {}, expect="error")
 
     # ────────── VERSION ──────────
     if "create_version" in tool_names and "delete_version" in tool_names:
         vn = make_name("ver")
         r = await tr.run(session, "create", "create_version", {"name": vn, "project_id": store.get("persistent_project_id", 1)})
         vid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
-
         await tr.run(session, "list", "list_versions", {}, expect="success")
-
-        if vid:
-            g = await tr.call(session, "get", "get_version_by_id", {"id": vid})
-            gd = extract_content(g)
-            lv = gd.get("lockVersion") if isinstance(gd, dict) else None
-            up = {"id": vid, "name": "upd-" + vn}
-            if lv is not None:
-                up["lock_version"] = lv
-            await tr.run(session, "update", "update_version", up)
-            await tr.run(session, "delete", "delete_version", {"id": vid})
-            await asyncio.sleep(0.3)
-            await tr.run(session, "verify-delete", "get_version_by_id", {"id": vid}, expect="error")
+        g = await tr.call(session, "get lock", "get_version_by_id", {"id": vid} if vid else {})
+        gd = extract_content(g)
+        lv = gd.get("lockVersion") if isinstance(gd, dict) else None
+        up = {"id": vid} if vid else {}
+        up["name"] = "upd-" + vn
+        if lv is not None:
+            up["lock_version"] = lv
+        await tr.run(session, "update", "update_version", up, expect="success" if vid else "success")
+        await tr.run(session, "delete", "delete_version", {"id": vid} if vid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify-delete", "get_version_by_id", {"id": vid} if vid else {}, expect="error")
 
     # ────────── MEMBERSHIP ──────────
     if "create_membership" in tool_names and "delete_membership" in tool_names:
         mc = await tr.run(session, "create", "create_membership", {
             "project_id": store.get("persistent_project_id", 1), "principal_id": sid_user, "role_ids": [sid_role],
-        }, expect="any")
+        }, expect="success")
         mid = extract_content(mc).get("id") if isinstance(extract_content(mc), dict) else None
         await tr.run(session, "list", "list_memberships", {}, expect="success")
-        if mid:
-            await tr.run(session, "get", "get_membership_by_id", {"id": mid})
-            await tr.run(session, "update", "update_membership", {"id": mid, "role_ids": [sid_role]})
-            await tr.run(session, "delete", "delete_membership", {"id": mid})
-            await asyncio.sleep(0.3)
-            await tr.run(session, "verify-delete", "get_membership_by_id", {"id": mid}, expect="error")
-        else:
-            # Membership create failed — test get on first existing membership from list
-            lm = await tr.call(session, "list memberships", "list_memberships", {})
-            items = get_list_items(extract_content(lm))
-            if items:
-                existing_mid = items[0].get("id")
-                if existing_mid:
-                    await tr.run(session, "get", "get_membership_by_id", {"id": existing_mid})
+        await tr.run(session, "get", "get_membership_by_id", {"id": mid} if mid else {})
+        await tr.run(session, "update", "update_membership", {"id": mid, "role_ids": [sid_role]} if mid else {})
+        await tr.run(session, "delete", "delete_membership", {"id": mid} if mid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify-delete", "get_membership_by_id", {"id": mid} if mid else {}, expect="error")
 
     # ────────── WORK PACKAGE ──────────
     if "create_work_package" in tool_names:
@@ -553,113 +539,97 @@ async def async_main() -> None:
             "priority_id": sid_priority, "status_id": sid_status,
         })
         wpid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
-        store["wp_id"] = wpid
 
         await tr.run(session, "list", "list_work_packages", {}, expect="success")
+        await tr.run(session, "get", "get_work_package_by_id", {"id": wpid} if wpid else {})
 
-        if wpid:
-            await tr.run(session, "get", "get_work_package_by_id", {"id": wpid})
+        # WP sub-tools — ALL unconditional
+        await tr.run(session, "add comment", "add_work_package_comment", {"id": wpid, "comment": "Test comment"} if wpid else {})
+        act_result = await tr.call(session, "get activities", "get_work_package_activities", {"id": wpid} if wpid else {})
+        act_data = extract_content(act_result)
+        act_id = acts[0].get("id") if isinstance(act_data, dict) and (acts := get_list_items(act_data)) else None
 
-            # WP sub-tools — ALL called unconditionally
-            await tr.run(session, "add comment", "add_work_package_comment", {"id": wpid, "comment": "Test comment"}, expect="any")
-            act_result = await tr.call(session, "get activities", "get_work_package_activities", {"id": wpid})
-            act_data = extract_content(act_result)
-            act_id = None
-            if isinstance(act_data, dict):
-                acts = get_list_items(act_data)
-                if acts:
-                    act_id = acts[0].get("id")
+        await tr.run(session, "get activities", "get_work_package_activities", {"id": wpid} if wpid else {})
+        await tr.run(session, "add watcher", "add_work_package_watcher", {"id": wpid, "user_id": sid_user} if wpid else {})
+        await tr.run(session, "get watchers", "get_work_package_watchers", {"id": wpid} if wpid else {})
+        await tr.run(session, "remove watcher", "remove_work_package_watcher", {"id": wpid, "user_id": sid_user} if wpid else {})
 
-            await tr.run(session, "get activities", "get_work_package_activities", {"id": wpid}, expect="any")
-            await tr.run(session, "add watcher", "add_work_package_watcher", {"id": wpid, "user_id": sid_user}, expect="any")
-            await tr.run(session, "get watchers", "get_work_package_watchers", {"id": wpid})
-            await tr.run(session, "remove watcher", "remove_work_package_watcher", {"id": wpid, "user_id": sid_user}, expect="any")
-            await tr.run(session, "create relation", "create_work_package_relation", {"id": wpid, "target_id": wpid, "relation_type": "relates"}, expect="any")
-            await tr.run(session, "get relations", "get_work_package_relations", {"id": wpid})
-            await tr.run(session, "list attachments", "list_work_package_attachments", {"id": wpid})
-
-            # Emoji — ALWAYS called, with any available activity_id
-            await tr.run(session, "toggle emoji", "toggle_emoji_reaction", {"activity_id": act_id or 1, "reaction": "thumbs_up"}, expect="any")
-            await tr.run(session, "list emoji", "list_emoji_reactions", {"activity_id": act_id or 1}, expect="any")
-
-            # Reminder — create, update, delete on the WP
-            if "create_reminder" in tool_names:
-                rr = await tr.run(session, "create reminder", "create_reminder", {"work_package_id": wpid, "remind_at": "2026-07-01T10:00:00Z", "note": "Test reminder"})
-                rrid = extract_content(rr).get("id") if isinstance(extract_content(rr), dict) else None
-                if rrid:
-                    await tr.run(session, "update reminder", "update_reminder", {"id": rrid, "note": "Updated reminder"})
-                    await tr.run(session, "delete reminder", "delete_reminder", {"id": rrid})
-                    await asyncio.sleep(0.3)
-                    await tr.run(session, "verify reminder delete", "delete_reminder", {"id": rrid}, expect="error")
-
-            # Update
-            g = await tr.call(session, "get lock", "get_work_package_by_id", {"id": wpid})
-            gd = extract_content(g)
-            lv = gd.get("lockVersion") if isinstance(gd, dict) else None
-            up = {"id": wpid, "subject": "upd-" + wn}
-            if lv is not None:
-                up["lock_version"] = lv
-            await tr.run(session, "update", "update_work_package", up)
-
-            # Delete
-            await tr.run(session, "delete", "delete_work_package", {"id": wpid})
+        # Second WP for relation target (self-relation not allowed)
+        wp2 = await tr.call(session, "create related wp", "create_work_package", {
+            "subject": wn + "-rel", "project_id": store.get("persistent_project_id", 1),
+            "type_id": sid_type, "priority_id": sid_priority, "status_id": sid_status,
+        })
+        wp2id = extract_content(wp2).get("id") if isinstance(extract_content(wp2), dict) else None
+        await tr.run(session, "create relation", "create_work_package_relation", {"id": wpid, "target_id": wp2id, "relation_type": "relates"} if wpid and wp2id else {})
+        await tr.run(session, "get relations", "get_work_package_relations", {"id": wpid} if wpid else {})
+        if wp2id:
+            await tr.run(session, "delete related wp", "delete_work_package", {"id": wp2id})
             await asyncio.sleep(0.3)
-            await tr.run(session, "verify-delete", "get_work_package_by_id", {"id": wpid}, expect="error")
+        await tr.run(session, "list attachments", "list_work_package_attachments", {"id": wpid} if wpid else {})
+
+        # Emoji
+        await tr.run(session, "toggle emoji", "toggle_emoji_reaction", {"activity_id": act_id, "reaction": "thumbs_up"} if act_id else {})
+        await tr.run(session, "list emoji", "list_emoji_reactions", {"activity_id": act_id} if act_id else {})
+
+        # Reminder
+        rr = await tr.run(session, "create reminder", "create_reminder", {"work_package_id": wpid, "remind_at": "2026-07-01T10:00:00Z", "note": "Test reminder"} if wpid else {})
+        rrid = extract_content(rr).get("id") if isinstance(extract_content(rr), dict) else None
+        await tr.run(session, "update reminder", "update_reminder", {"id": rrid, "note": "Updated reminder"} if rrid else {})
+        await tr.run(session, "delete reminder", "delete_reminder", {"id": rrid} if rrid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify reminder delete", "delete_reminder", {"id": rrid} if rrid else {}, expect="error")
+
+        # Update
+        g = await tr.call(session, "get lock", "get_work_package_by_id", {"id": wpid} if wpid else {})
+        gd = extract_content(g)
+        lv = gd.get("lockVersion") if isinstance(gd, dict) else None
+        up = {"id": wpid, "subject": "upd-" + wn} if wpid else {}
+        if lv is not None and wpid:
+            up["lock_version"] = lv
+        await tr.run(session, "update", "update_work_package", up)
+        await tr.run(session, "delete", "delete_work_package", {"id": wpid} if wpid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify-delete", "get_work_package_by_id", {"id": wpid} if wpid else {}, expect="error")
 
     # ────────── MEETING ──────────
     if "create_meeting" in tool_names:
         mn = make_name("mtg")
         r = await tr.run(session, "create", "create_meeting", {
             "title": mn, "project_id": store.get("persistent_project_id", 1), "start_time": "2026-07-01T10:00:00Z", "end_time": "2026-07-01T11:00:00Z",
-        }, expect="any")
+        }, expect="success")
         mtid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
 
         await tr.run(session, "list", "list_meetings", {}, expect="success")
+        await tr.run(session, "get", "get_meeting_by_id", {"id": mtid} if mtid else {})
+        await tr.run(session, "list agenda", "list_meeting_agenda_items", {"meeting_id": mtid} if mtid else {})
+        await tr.run(session, "list sections", "list_meeting_sections", {"meeting_id": mtid} if mtid else {})
 
-        if mtid:
-            await tr.run(session, "get", "get_meeting_by_id", {"id": mtid})
-            await tr.run(session, "list agenda", "list_meeting_agenda_items", {"meeting_id": mtid}, expect="any")
-            await tr.run(session, "list sections", "list_meeting_sections", {"meeting_id": mtid}, expect="any")
+        # Agenda item
+        ac = await tr.run(session, "create agenda", "create_meeting_agenda_item", {"meeting_id": mtid, "item_type": "simple", "title": "Ag1"} if mtid else {})
+        agid = extract_content(ac).get("id") if isinstance(extract_content(ac), dict) else None
+        await tr.run(session, "get agenda", "get_meeting_agenda_item_by_id", {"meeting_id": mtid, "id": agid} if mtid and agid else {})
+        await tr.run(session, "update agenda", "update_meeting_agenda_item", {"meeting_id": mtid, "id": agid, "title": "UpdAg"} if mtid and agid else {})
 
-            # Agenda item
-            ac = await tr.run(session, "create agenda", "create_meeting_agenda_item", {"meeting_id": mtid, "item_type": "simple", "title": "Ag1"})
-            agid = extract_content(ac).get("id") if isinstance(extract_content(ac), dict) else None
+        # Outcome
+        oc = await tr.run(session, "create outcome", "create_meeting_outcome", {"meeting_id": mtid, "meeting_agenda_item_id": agid, "outcome_type": "simple", "text": "Done"} if mtid and agid else {})
+        ocid = extract_content(oc).get("id") if isinstance(extract_content(oc), dict) else None
+        await tr.run(session, "get outcome", "get_meeting_outcome_by_id", {"meeting_id": mtid, "id": ocid} if mtid and ocid else {})
+        await tr.run(session, "update outcome", "update_meeting_outcome", {"meeting_id": mtid, "id": ocid, "text": "Upd"} if mtid and ocid else {})
+        await tr.run(session, "delete outcome", "delete_meeting_outcome", {"meeting_id": mtid, "id": ocid} if mtid and ocid else {})
 
-            if agid:
-                await tr.run(session, "get agenda", "get_meeting_agenda_item_by_id", {"meeting_id": mtid, "id": agid})
-                await tr.run(session, "update agenda", "update_meeting_agenda_item", {"meeting_id": mtid, "id": agid, "title": "UpdAg"})
-                # Meeting outcome — depends on agenda item (backend may not support)
-                oc = await tr.run(session, "create outcome", "create_meeting_outcome", {"meeting_id": mtid, "meeting_agenda_item_id": agid, "outcome_type": "simple", "text": "Done"}, expect="any")
-                ocid = extract_content(oc).get("id") if isinstance(extract_content(oc), dict) else None
-                if ocid:
-                    await tr.run(session, "get outcome", "get_meeting_outcome_by_id", {"meeting_id": mtid, "id": ocid})
-                    await tr.run(session, "update outcome", "update_meeting_outcome", {"meeting_id": mtid, "id": ocid, "text": "Upd"})
-                    await tr.run(session, "delete outcome", "delete_meeting_outcome", {"meeting_id": mtid, "id": ocid})
-                await tr.run(session, "delete agenda", "delete_meeting_agenda_item", {"meeting_id": mtid, "id": agid})
+        await tr.run(session, "delete agenda", "delete_meeting_agenda_item", {"meeting_id": mtid, "id": agid} if mtid and agid else {})
 
-            # Section
-            sc = await tr.run(session, "create section", "create_meeting_section", {"meeting_id": mtid, "title": "Sec1", "position": 1})
-            scid = extract_content(sc).get("id") if isinstance(extract_content(sc), dict) else None
-            if scid:
-                await tr.run(session, "get section", "get_meeting_section_by_id", {"meeting_id": mtid, "id": scid})
-                await tr.run(session, "update section", "update_meeting_section", {"meeting_id": mtid, "id": scid, "title": "UpdSec"})
-                await tr.run(session, "delete section", "delete_meeting_section", {"meeting_id": mtid, "id": scid})
+        # Section
+        sc = await tr.run(session, "create section", "create_meeting_section", {"meeting_id": mtid, "title": "Sec1", "position": 1} if mtid else {})
+        scid = extract_content(sc).get("id") if isinstance(extract_content(sc), dict) else None
+        await tr.run(session, "get section", "get_meeting_section_by_id", {"meeting_id": mtid, "id": scid} if mtid and scid else {})
+        await tr.run(session, "update section", "update_meeting_section", {"meeting_id": mtid, "id": scid, "title": "UpdSec"} if mtid and scid else {})
+        await tr.run(session, "delete section", "delete_meeting_section", {"meeting_id": mtid, "id": scid} if mtid and scid else {})
 
-            await tr.run(session, "update", "update_meeting", {"id": mtid, "title": "upd-" + mn})
-            await tr.run(session, "delete", "delete_meeting", {"id": mtid})
-            await asyncio.sleep(0.3)
-            await tr.run(session, "verify-delete", "get_meeting_by_id", {"id": mtid}, expect="error")
-        else:
-            # Meeting create failed — still test ALL meeting tools unconditionally
-            for tool_name in [
-                "list_meeting_agenda_items", "list_meeting_sections", "create_meeting_agenda_item",
-                "get_meeting_agenda_item_by_id", "update_meeting_agenda_item", "delete_meeting_agenda_item",
-                "create_meeting_outcome", "get_meeting_outcome_by_id", "update_meeting_outcome",
-                "delete_meeting_outcome", "create_meeting_section", "get_meeting_section_by_id",
-                "update_meeting_section", "delete_meeting_section", "update_meeting", "delete_meeting",
-            ]:
-                if tool_name in tool_names:
-                    await tr.run(session, tool_name, tool_name, {}, expect="any")
+        await tr.run(session, "update", "update_meeting", {"id": mtid, "title": "upd-" + mn} if mtid else {})
+        await tr.run(session, "delete", "delete_meeting", {"id": mtid} if mtid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify-delete", "get_meeting_by_id", {"id": mtid} if mtid else {}, expect="error")
 
     # ────────── NEWS ──────────
     if "create_news" in tool_names and "delete_news" in tool_names:
@@ -667,17 +637,15 @@ async def async_main() -> None:
         r = await tr.run(session, "create", "create_news", {"title": nn, "project_id": store.get("persistent_project_id", 1)})
         nid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
         await tr.run(session, "list", "list_news", {}, expect="success")
-        if nid:
-            await tr.run(session, "get", "get_news_by_id", {"id": nid})
-            await tr.run(session, "update", "update_news", {"id": nid, "title": "upd-" + nn})
-            await tr.run(session, "delete", "delete_news", {"id": nid})
-            await asyncio.sleep(0.3)
-            await tr.run(session, "verify-delete", "get_news_by_id", {"id": nid}, expect="error")
+        await tr.run(session, "get", "get_news_by_id", {"id": nid} if nid else {})
+        await tr.run(session, "update", "update_news", {"id": nid, "title": "upd-" + nn} if nid else {})
+        await tr.run(session, "delete", "delete_news", {"id": nid} if nid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify-delete", "get_news_by_id", {"id": nid} if nid else {}, expect="error")
 
     # ────────── GRID ──────────
     if "create_grid" in tool_names and "delete_grid" in tool_names:
         gn = make_name("grid")
-        # Discover project identifier for scope href via list_projects
         scope_href = "/projects/demo-project/boards"
         pident = store.get("project_ident", "")
         if pident:
@@ -687,17 +655,15 @@ async def async_main() -> None:
         })
         gid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
         await tr.run(session, "list", "list_grids", {}, expect="success")
-        if gid:
-            await tr.run(session, "get", "get_grid_by_id", {"id": gid})
-            await tr.run(session, "update", "update_grid", {"id": gid})
-            await tr.run(session, "delete", "delete_grid", {"id": gid})
-            await asyncio.sleep(0.3)
-            await tr.run(session, "verify-delete", "get_grid_by_id", {"id": gid}, expect="error")
+        await tr.run(session, "get", "get_grid_by_id", {"id": gid} if gid else {})
+        await tr.run(session, "update", "update_grid", {"id": gid} if gid else {})
+        await tr.run(session, "delete", "delete_grid", {"id": gid} if gid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify-delete", "get_grid_by_id", {"id": gid} if gid else {}, expect="error")
 
     # ────────── TIME ENTRY ──────────
     if "create_time_entry" in tool_names and "delete_time_entry" in tool_names:
         ten = make_name("te")
-        # Discover a work package and its project for time entry
         wp_lr = await tr.call(session, "list wps", "list_work_packages", {"page_size": 50})
         wp_items = get_list_items(extract_content(wp_lr))
         te_wp_id = None
@@ -713,22 +679,16 @@ async def async_main() -> None:
                     except ValueError:
                         pass
                 break
-        if te_wp_id and te_proj_id:
-            te = await tr.run(session, "create", "create_time_entry", {
-                "project_id": te_proj_id, "work_package_id": te_wp_id, "hours": "PT2H",
-                "spent_on": "2026-06-27", "comment": ten,
-            })
-            teid = extract_content(te).get("id") if isinstance(extract_content(te), dict) else None
-            if teid:
-                await tr.run(session, "get", "get_time_entry_by_id", {"id": teid})
-                await tr.run(session, "update", "update_time_entry", {"id": teid, "hours": "PT4H"})
-                await tr.run(session, "delete", "delete_time_entry", {"id": teid})
-                await asyncio.sleep(0.3)
-                await tr.run(session, "verify-delete", "get_time_entry_by_id", {"id": teid}, expect="error")
-        else:
-            await tr.run(session, "create", "create_time_entry", {
-                "project_id": store.get("persistent_project_id", 1), "hours": "PT2H", "spent_on": "2026-06-27", "comment": ten,
-            }, expect="any")
+        te = await tr.run(session, "create", "create_time_entry", {
+            "project_id": te_proj_id, "work_package_id": te_wp_id, "hours": "PT2H",
+            "spent_on": "2026-06-27", "comment": ten,
+        } if te_wp_id and te_proj_id else {})
+        teid = extract_content(te).get("id") if isinstance(extract_content(te), dict) else None
+        await tr.run(session, "get", "get_time_entry_by_id", {"id": teid} if teid else {})
+        await tr.run(session, "update", "update_time_entry", {"id": teid, "hours": "PT4H"} if teid else {})
+        await tr.run(session, "delete", "delete_time_entry", {"id": teid} if teid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify-delete", "get_time_entry_by_id", {"id": teid} if teid else {}, expect="error")
         await tr.run(session, "list", "list_time_entries", {}, expect="success")
 
     # ────────── RECURRING MEETING ──────────
@@ -741,12 +701,11 @@ async def async_main() -> None:
         })
         rmid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
         await tr.run(session, "list", "list_recurring_meetings", {}, expect="success")
-        if rmid:
-            await tr.run(session, "get", "get_recurring_meeting_by_id", {"id": rmid})
-            await tr.run(session, "update", "update_recurring_meeting", {"id": rmid, "title": "upd-" + rmn})
-            await tr.run(session, "delete", "delete_recurring_meeting", {"id": rmid})
-            await asyncio.sleep(0.3)
-            await tr.run(session, "verify-delete", "get_recurring_meeting_by_id", {"id": rmid}, expect="error")
+        await tr.run(session, "get", "get_recurring_meeting_by_id", {"id": rmid} if rmid else {})
+        await tr.run(session, "update", "update_recurring_meeting", {"id": rmid, "title": "upd-" + rmn} if rmid else {})
+        await tr.run(session, "delete", "delete_recurring_meeting", {"id": rmid} if rmid else {})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify-delete", "get_recurring_meeting_by_id", {"id": rmid} if rmid else {}, expect="error")
 
     # ────────── CLEANUP: Delete persistent project ──────────
     ppid = store.get("persistent_project_id")
