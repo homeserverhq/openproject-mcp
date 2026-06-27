@@ -436,6 +436,7 @@ async def async_main() -> None:
     await tr.run(session, "list", "list_projects", {}, expect="success")
     await tr.run(session, "get", "get_project_by_id", {"id": pid})
 
+    # ── Copy test (independent, separate project) ──
     cpy_name = pn + "-cpy"
     cr = await tr.run(session, "copy", "copy_project", {"id": pid, "name": cpy_name, "identifier": pn + "_cpy"})
     cpy_data = extract_content(cr)
@@ -446,23 +447,35 @@ async def async_main() -> None:
         jd = extract_content(jr)
         if isinstance(jd, dict) and jd.get("status") == "success":
             break
-
-    for attempt in range(10):
+    cpy_found = None
+    for _ in range(10):
         await asyncio.sleep(1)
         lr = await session.call_tool("list_projects", {"page_size": 100})
-        found = find_match(extract_content(lr), "name", cpy_name)
-        await session.call_tool("delete_project", {"id": (found or {}).get("id")})
-        if found:
+        cpy_found = find_match(extract_content(lr), "name", cpy_name)
+        if cpy_found:
             break
-    g = await tr.call(session, "get lock", "get_project_by_id", {"id": pid})
-    gd = extract_content(g)
-    lv = gd.get("lockVersion") if isinstance(gd, dict) else None
-    up = {"id": pid, "name": "upd-" + pn}
-    up["lock_version"] = lv
-    await tr.run(session, "update", "update_project", up)
+    if cpy_found:
+        await tr.run(session, "get copy", "get_project_by_id", {"id": cpy_found.get("id")})
+        await tr.run(session, "delete copy", "delete_project", {"id": cpy_found.get("id")})
+        await asyncio.sleep(0.3)
     await tr.run(session, "delete", "delete_project", {"id": pid})
     await asyncio.sleep(0.3)
     await tr.run(session, "verify-delete", "get_project_by_id", {"id": pid}, expect="error")
+
+    # ── Update test (independent, separate project) ──
+    pn2 = make_name("upd")
+    r2 = await tr.run(session, "create upd project", "create_project", {
+        "name": pn2, "identifier": pn2, "description": "Update test", "public": True, "active": True,
+    })
+    pid2 = extract_content(r2).get("id") if isinstance(extract_content(r2), dict) else None
+    g2 = await tr.call(session, "get lock", "get_project_by_id", {"id": pid2})
+    gd2 = extract_content(g2)
+    lv2 = gd2.get("lockVersion") if isinstance(gd2, dict) else None
+    up2 = {"id": pid2, "name": "upd-" + pn2, "lock_version": lv2}
+    await tr.run(session, "update", "update_project", up2)
+    await tr.run(session, "delete", "delete_project", {"id": pid2})
+    await asyncio.sleep(0.3)
+    await tr.run(session, "verify-delete", "get_project_by_id", {"id": pid2}, expect="error")
 
     # ────────── CATEGORIES & BUDGETS (scan up to 10 projects) ──────────
     cid = None
