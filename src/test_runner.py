@@ -569,7 +569,7 @@ async def async_main() -> None:
     await tr.run(session, "toggle emoji", "toggle_emoji_reaction", {"activity_id": act_id, "reaction": "thumbs_up"})
     await tr.run(session, "list emoji", "list_emoji_reactions", {"activity_id": act_id})
 
-    rr = await tr.run(session, "create reminder", "create_reminder", {"work_package_id": wpid, "remind_at": "2026-07-01T10:00:00Z", "note": "Test reminder"})
+    rr = await tr.run(session, "create reminder", "create_reminder", {"work_package_id": wpid, "remind_at": "2026-07-01T10:00:00+00:00", "note": "Test reminder"})
     rrid = extract_content(rr).get("id") if isinstance(extract_content(rr), dict) else None
     await tr.run(session, "update reminder", "update_reminder", {"id": rrid, "note": "Updated reminder"})
     await tr.run(session, "delete reminder", "delete_reminder", {"id": rrid})
@@ -607,7 +607,7 @@ async def async_main() -> None:
     # ────────── MEETING ──────────
     mn = make_name("mtg")
     r = await tr.run(session, "create", "create_meeting", {
-        "title": mn, "project_id": store.get("persistent_project_id"), "start_time": "2026-07-01T10:00:00Z", "end_time": "2026-07-01T11:00:00Z",
+        "title": mn, "project_id": store.get("persistent_project_id"), "start_time": "2026-07-01T10:00:00+00:00", "end_time": "2026-07-01T11:00:00+00:00",
     }, expect="success")
     mtid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
 
@@ -693,7 +693,7 @@ async def async_main() -> None:
     rmn = make_name("rm")
     r = await tr.run(session, "create", "create_recurring_meeting", {
         "project_id": store.get("persistent_project_id"), "title": rmn, "frequency": "weekly",
-        "start_time": "2026-07-01T10:00:00Z", "end_time": "2026-07-01T11:00:00Z",
+        "start_time": "2026-07-01T10:00:00+00:00", "end_time": "2026-07-01T11:00:00+00:00",
         "days": [1],
     })
     rmid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None

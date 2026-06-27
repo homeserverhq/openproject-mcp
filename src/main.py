@@ -130,16 +130,16 @@ class MembershipUpdate(BaseModel):
 class MeetingCreate(BaseModel):
     title: str = Field(description="Meeting title")
     project_id: int = Field(description="ID of the project this meeting belongs to")
-    start_time: str = Field(description="Start time in ISO 8601 format (e.g. 2026-07-01T10:00:00Z)")
-    end_time: str = Field(description="End time in ISO 8601 format (e.g. 2026-07-01T11:00:00Z)")
+    start_time: str = Field(description="Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00)")
+    end_time: str = Field(description="Use ISO 8601 format with explicit UTC offset (2026-06-22T16:00:00-04:00)")
     location: str = Field(default="", description="Meeting location or video call link")
     notify: bool = Field(default=True, description="Whether to notify participants")
 
 
 class MeetingUpdate(BaseModel):
     title: str | None = Field(default=None, description="Meeting title")
-    start_time: str | None = Field(default=None, description="Start time in ISO 8601 format")
-    end_time: str | None = Field(default=None, description="End time in ISO 8601 format")
+    start_time: str | None = Field(default=None, description="Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00)")
+    end_time: str | None = Field(default=None, description="Use ISO 8601 format with explicit UTC offset (2026-06-22T16:00:00-04:00)")
     location: str | None = Field(default=None, description="Meeting location or video call link")
     notify: bool | None = Field(default=None, description="Whether to notify participants")
     lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
@@ -1137,7 +1137,7 @@ def create_reminder(
     remind_at: str,
     note: str = "",
 ) -> dict[str, Any]:
-    """Create a reminder on a work package. (required: work_package_id, remind_at - ISO 8601 datetime, e.g. '2026-07-01T10:00:00Z')"""
+    """Create a reminder on a work package. (required: work_package_id, remind_at - ISO 8601 datetime with explicit UTC offset)"""
     payload: dict[str, Any] = {"remindAt": remind_at}
     if note:
         payload["note"] = note
@@ -1406,7 +1406,7 @@ def create_recurring_meeting(
     count_limit: int | None = None,
     end_date: str | None = None,
 ) -> dict[str, Any]:
-    """Create a recurring meeting. (required: project_id, title, frequency, start_time, end_time)"""
+    """Create a recurring meeting. (required: project_id, title, frequency, start_time, end_time — start_time and end_time use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00))"""
     payload: dict[str, Any] = {
         "title": title,
         "frequency": frequency,
@@ -1440,7 +1440,7 @@ def update_recurring_meeting(
     interval_value: int | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a recurring meeting. (required: id)"""
+    """Update a recurring meeting. (required: id — start_time and end_time use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00))"""
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title

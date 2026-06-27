@@ -3,10 +3,26 @@
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import os
+import re
 from typing import Any
 
 import httpx
+
+
+def _normalize_datetime(value: str) -> str:
+    """Validate and convert ISO 8601 datetime with explicit UTC offset."""
+    if re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$', value):
+        parsed = dt.datetime.fromisoformat(value)
+        parsed = parsed.astimezone(dt.timezone.utc)
+        return parsed.strftime('%Y-%m-%d %H:%M:%S')
+    if re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', value):
+        raise ValueError(
+            f"Invalid datetime: {value}. Timezone offset is required. "
+            "Must use format: 2026-06-22T15:00:00-04:00"
+        )
+    return value
 
 
 class OpenProjectClient:
@@ -31,6 +47,10 @@ class OpenProjectClient:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
+
+    def _normalize_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Validate datetime strings in a request payload."""
+        return {k: _normalize_datetime(v) if isinstance(v, str) else v for k, v in payload.items()}
 
     def _request(
         self,
@@ -505,13 +525,13 @@ class OpenProjectClient:
         return self._get("/meetings", params=params)
 
     def create_meeting(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/meetings", json=payload)
+        return self._post("/meetings", json=self._normalize_payload(payload))
 
     def get_meeting_by_id(self, id: int) -> dict[str, Any]:
         return self._get(f"/meetings/{id}")
 
     def update_meeting(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/meetings/{id}", json=payload)
+        return self._patch(f"/meetings/{id}", json=self._normalize_payload(payload))
 
     def delete_meeting(self, id: int) -> dict[str, Any]:
         return self._delete(f"/meetings/{id}")
@@ -621,7 +641,7 @@ class OpenProjectClient:
         return self._get("/recurring_meetings", params=params)
 
     def create_recurring_meeting(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/recurring_meetings", json=payload)
+        return self._post("/recurring_meetings", json=self._normalize_payload(payload))
 
     def get_recurring_meeting_by_id(self, id: int) -> dict[str, Any]:
         return self._get(f"/recurring_meetings/{id}")
@@ -629,7 +649,7 @@ class OpenProjectClient:
     def update_recurring_meeting(
         self, id: int, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        return self._patch(f"/recurring_meetings/{id}", json=payload)
+        return self._patch(f"/recurring_meetings/{id}", json=self._normalize_payload(payload))
 
     def delete_recurring_meeting(self, id: int) -> dict[str, Any]:
         return self._delete(f"/recurring_meetings/{id}")
