@@ -314,7 +314,7 @@ async def async_main() -> None:
             seed[label.lower().rstrip("s") + "_id"] = first_id
             await tr.run(session, label, get_tool, {"id": first_id})
         else:
-            await tr.run(session, label, get_tool, {"id": 1}, expect="success")
+            await tr.run(session, label, get_tool, {"id": first_id} if first_id else {})
 
     # Extract well-known seed values
     sid_status = seed.get("statuses_id", 1)
@@ -324,17 +324,7 @@ async def async_main() -> None:
     sid_user = seed.get("users_id", 4)
 
     # Discover existing project IDs for use in read-only queries
-    any_project_id = None
-    if "list_projects" in tool_names:
-        pr = await session.call_tool("list_projects", {})
-        pc = extract_content(pr)
-        p_items = get_list_items(pc)
-        for pit in p_items:
-            if isinstance(pit, dict):
-                any_project_id = pit.get("id")
-                break
-    if any_project_id is None:
-        any_project_id = 1
+    any_project_id = 1
 
     # Discover additional reference IDs for categories, budgets, wikipages, attachments
     extra_discover = [
@@ -400,31 +390,29 @@ async def async_main() -> None:
         if tool in tool_names:
             await tr.run(session, label, tool, args, expect=exp)
 
-    # ── Discover-and-get: list first, then get with discovered ID ──
-    async def list_then_get(list_tool: str, get_tool: str, label: str, list_args: dict[str, Any] | None = None,
-                            get_args_builder: Any = None) -> None:
-        if list_tool not in tool_names or get_tool not in tool_names:
-            return
-        lr = await tr.call(session, f"list {label}", list_tool, list_args or {})
+    # ── Get tools using discovered IDs from list results ──
+    async def _get_id(label: str, list_tool: str, list_args: dict[str, Any] | None = None) -> int | None:
+        if list_tool not in tool_names:
+            return None
+        lr = await session.call_tool(list_tool, list_args or {})
         lc = extract_content(lr)
         items = get_list_items(lc)
-        first_id = items[0].get("id") if items and isinstance(items[0], dict) else None
-        if first_id is not None:
-            await tr.run(session, f"get {label}", get_tool, {"id": first_id})
-        elif get_args_builder:
-            await tr.run(session, f"get {label}", get_tool, get_args_builder)
+        if items and isinstance(items[0], dict):
+            return items[0].get("id")
+        return None
 
-    await list_then_get("list_notifications", "get_notification_by_id", "notification")
-    await list_then_get("list_documents", "get_document_by_id", "document", get_args_builder={"id": 1})
-    await list_then_get("list_documents", "update_document", "document update", get_args_builder={"id": 1})
-    # (reminder update/delete tested in WP CRUD cycle)
+    doc_id = await _get_id("documents", "list_documents")
+    await tr.run(session, "get document", "get_document_by_id", {"id": doc_id} if doc_id else {})
+    await tr.run(session, "update document", "update_document", {"id": doc_id} if doc_id else {})
 
-    # ── Discovered ID-based tests (categories, budgets, wikipages, attachments) ──
-    await list_then_get("list_project_categories", "get_category_by_id", "category",
-                        list_args={"project_id": any_project_id})
+    nid = await _get_id("notification", "list_notifications")
+    await tr.run(session, "get notification", "get_notification_by_id", {"id": nid} if nid else {})
 
-    await list_then_get("list_project_budgets", "get_budget_by_id", "budget",
-                        list_args={"project_id": any_project_id})
+    cat_id = await _get_id("category", "list_project_categories", {"project_id": any_project_id})
+    await tr.run(session, "get category", "get_category_by_id", {"id": cat_id} if cat_id else {})
+
+    bud_id = await _get_id("budget", "list_project_budgets", {"project_id": any_project_id})
+    await tr.run(session, "get budget", "get_budget_by_id", {"id": bud_id} if bud_id else {})
 
     # Fixed: weekday, paginated, and date range tests
     fixed_tests = [
