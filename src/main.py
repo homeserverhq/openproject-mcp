@@ -325,10 +325,11 @@ def list_work_packages(
     if filters:
         import json as _json
         filter_str = _json.dumps(filters)
-    return get_client().list_work_packages(
+    data = get_client().list_work_packages(
         page_size=page_size, offset=offset, filters=filter_str,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -600,9 +601,10 @@ def list_projects(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_projects(
+    data = get_client().list_projects(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -748,9 +750,10 @@ def list_versions(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_versions(
+    data = get_client().list_versions(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -871,10 +874,11 @@ def list_memberships(
     if project_id is not None:
         import json as _json
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    return get_client().list_memberships(
+    data = get_client().list_memberships(
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -961,10 +965,11 @@ def list_users(
         filters (optional): Filters.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_users(
+    data = get_client().list_users(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1062,9 +1067,10 @@ def list_groups(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_groups(
+    data = get_client().list_groups(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1144,9 +1150,10 @@ def list_statuses(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_statuses(
+    data = get_client().list_statuses(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1174,9 +1181,10 @@ def list_types(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_types(
+    data = get_client().list_types(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1204,9 +1212,10 @@ def list_priorities(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_priorities(
+    data = get_client().list_priorities(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1234,9 +1243,10 @@ def list_roles(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_roles(
+    data = get_client().list_roles(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1266,10 +1276,11 @@ def list_principals(
         filters (optional): Filters.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_principals(
+    data = get_client().list_principals(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1375,10 +1386,11 @@ def list_notifications(
         filters (optional): Filters.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_notifications(
+    data = get_client().list_notifications(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1419,10 +1431,11 @@ def list_days(
     if date_from is not None and date_to is not None:
         filters.append({"date": {"operator": "<>d", "values": [date_from, date_to]}})
     filter_str = _json.dumps(filters) if filters else None
-    return get_client().list_days(
+    data = get_client().list_days(
         page_size=page_size, offset=offset, filters=filter_str,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1447,10 +1460,11 @@ def list_non_working_days(
     if date_from is not None and date_to is not None:
         filters.append({"date": {"operator": "<>d", "values": [date_from, date_to]}})
     filter_str = _json.dumps(filters) if filters else None
-    return get_client().list_non_working_days(
+    data = get_client().list_non_working_days(
         page_size=page_size, offset=offset, filters=filter_str,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1476,9 +1490,10 @@ def list_week_days(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_week_days(
+    data = get_client().list_week_days(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1524,10 +1539,11 @@ def list_documents(
     filters = None
     if project_id is not None:
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    return get_client().list_documents(
+    data = get_client().list_documents(
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1688,10 +1704,11 @@ def list_meetings(
     filters = None
     if project_id is not None:
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    return get_client().list_meetings(
+    data = get_client().list_meetings(
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1973,10 +1990,11 @@ def list_recurring_meetings(
     filters = None
     if project_id is not None:
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    return get_client().list_recurring_meetings(
+    data = get_client().list_recurring_meetings(
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -2104,10 +2122,11 @@ def list_time_entries(
     if work_package_id is not None:
         filters.append({"workPackage": {"operator": "=", "values": [str(work_package_id)]}})
     filter_str = _json.dumps(filters) if filters else None
-    return get_client().list_time_entries(
+    data = get_client().list_time_entries(
         page_size=page_size, offset=offset, filters=filter_str,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -2215,10 +2234,11 @@ def list_news(
     filters = None
     if project_id is not None:
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    return get_client().list_news(
+    data = get_client().list_news(
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -2311,9 +2331,10 @@ def list_grids(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_grids(
+    data = get_client().list_grids(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
