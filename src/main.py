@@ -186,8 +186,27 @@ class GridCreate(BaseModel):
 class GridUpdate(BaseModel):
     page: str | None = Field(default=None, description="Grid page identifier")
     row_count: int | None = Field(default=None, description="Number of rows in the grid")
-    widgets: str | None = Field(default=None, description="JSON string of widget configuration array")
     lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
+
+
+class GridWidget(BaseModel):
+    row: int = Field(description="Row position (1-indexed)")
+    column: int = Field(description="Column position (1-indexed)")
+    identifier: str = Field(description="Grid widget identifier (e.g. 'work_packages_table', 'news', 'documents')")
+    start_row: int | None = Field(default=None, description="Start row for widget span")
+    end_row: int | None = Field(default=None, description="End row for widget span")
+    start_column: int | None = Field(default=None, description="Start column for widget span")
+    end_column: int | None = Field(default=None, description="End column for widget span")
+
+
+class FilterCondition(BaseModel):
+    field: str = Field(description="Field name to filter on (e.g. 'status_id', 'project_id', 'type_id', 'name', 'email')")
+    operator: str = Field(description="Operator: '=' (equals), '!' (not), '>=' (gte), '<=' (lte), '<>d' (date range), '**' (any), '~' (contains), '!~' (not contains)")
+    values: list[str] = Field(description="Filter values as strings (single or multiple)")
+
+
+class FilterExpression(BaseModel):
+    conditions: list[FilterCondition] = Field(description="List of filter conditions to apply")
 
 
 # ─── Helper ───────────────────────────────────────────────────────────
@@ -240,6 +259,36 @@ def _build_membership_payload(data: MembershipCreate) -> dict[str, Any]:
             "roles": [{"href": f"/api/v3/roles/{rid}"} for rid in data.role_ids],
         }
     }
+
+
+def _build_filter_string(expr: FilterExpression | None) -> str | None:
+    if expr is None or not expr.conditions:
+        return None
+    filters_list: list[dict[str, Any]] = []
+    for c in expr.conditions:
+        filters_list.append({c.field: {"operator": c.operator, "values": c.values}})
+    import json as _json
+    return _json.dumps(filters_list)
+
+
+def _build_widgets_payload(widgets: list[GridWidget]) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for w in widgets:
+        item: dict[str, Any] = {
+            "row": w.row,
+            "column": w.column,
+            "identifier": w.identifier,
+        }
+        if w.start_row is not None:
+            item["startRow"] = w.start_row
+        if w.end_row is not None:
+            item["endRow"] = w.end_row
+        if w.start_column is not None:
+            item["startColumn"] = w.start_column
+        if w.end_column is not None:
+            item["endColumn"] = w.end_column
+        result.append(item)
+    return result
 
 
 # ─── Work Package Tools ───────────────────────────────────────────────
@@ -695,12 +744,12 @@ def delete_membership(id: int) -> dict[str, Any]:
 def list_users(
     page_size: int = 20,
     offset: int = 1,
-    filters: str | None = None,
+    filters: FilterExpression | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List users (paginated). (required: none)"""
+    """List users (paginated). (required: none — filters specifies filter conditions with field, operator, and values)"""
     return get_client().list_users(
-        page_size=page_size, offset=offset, filters=filters,
+        page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields
     )
 
@@ -901,12 +950,12 @@ def get_role_by_id(id: int) -> dict[str, Any]:
 def list_principals(
     page_size: int = 20,
     offset: int = 1,
-    filters: str | None = None,
+    filters: FilterExpression | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List principals (users and groups, paginated). (required: none)"""
+    """List principals (users and groups, paginated). (required: none — filters specifies filter conditions with field, operator, and values)"""
     return get_client().list_principals(
-        page_size=page_size, offset=offset, filters=filters,
+        page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields
     )
 
@@ -973,12 +1022,12 @@ def get_cost_type_by_id(id: int) -> dict[str, Any]:
 def list_notifications(
     page_size: int = 20,
     offset: int = 1,
-    filters: str | None = None,
+    filters: FilterExpression | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List notifications (paginated). (required: none)"""
+    """List notifications (paginated). (required: none — filters specifies filter conditions with field, operator, and values)"""
     return get_client().list_notifications(
-        page_size=page_size, offset=offset, filters=filters,
+        page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields
     )
 
@@ -1663,18 +1712,17 @@ def update_grid(
     id: int,
     page: str | None = None,
     row_count: int | None = None,
-    widgets: str | None = None,
+    widgets: list[GridWidget] | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a grid. (required: id)"""
-    import json
+    """Update a grid. (required: id — widgets specifies grid widget configuration including position and identifier)"""
     payload: dict[str, Any] = {}
     if page is not None:
         payload["page"] = page
     if row_count is not None:
         payload["rowCount"] = row_count
     if widgets is not None:
-        payload["widgets"] = json.loads(widgets)
+        payload["widgets"] = _build_widgets_payload(widgets)
     if lock_version is not None:
         payload["lockVersion"] = lock_version
     return get_client().update_grid(id, payload)
