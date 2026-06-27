@@ -25,6 +25,77 @@ def _normalize_datetime(value: str) -> str:
     return value
 
 
+ALLOW_ALL_AGGREGATE = os.environ.get("ALLOW_ALL_AGGREGATE", "false").lower() == "true"
+
+COMMON_FIELDS: dict[str, set[str]] = {
+    "work_package": {"id", "subject", "lockVersion"},
+    "project": {"id", "name", "identifier", "active", "public"},
+    "version": {"id", "name", "status", "sharing"},
+    "membership": {"id"},
+    "user": {"id", "login", "firstName", "lastName", "email", "admin"},
+    "group": {"id", "name"},
+    "principal": {"id", "name"},
+    "meeting": {"id", "title", "lockVersion", "state", "notify"},
+    "meeting_agenda_item": {"id", "title", "item_type", "duration_in_minutes"},
+    "meeting_section": {"id", "name", "position"},
+    "recurring_meeting": {"id", "title", "frequency", "interval_value"},
+    "time_entry": {"id", "hours"},
+    "news": {"id", "title", "summary"},
+    "grid": {"id", "rowCount", "columnCount"},
+    "status": {"id", "name", "isDefault", "isClosed"},
+    "type": {"id", "name", "isDefault"},
+    "priority": {"id", "name", "isDefault"},
+    "role": {"id", "name"},
+    "category": {"id", "name"},
+    "wiki_page": {"id", "title"},
+    "budget": {"id", "subject"},
+    "cost_type": {"id", "name", "unit"},
+    "notification": {"id", "reason", "readIAN"},
+    "day": {"id", "date", "name", "working"},
+    "non_working_day": {"id", "date", "name"},
+    "week_day": {"id", "day", "name", "working"},
+    "attachment": {"id", "fileName", "fileSize", "mimeType"},
+    "document": {"id", "title"},
+    "emoji_reaction": {"id", "reaction", "userId"},
+    "reminder": {"id", "note"},
+}
+
+LINK_FIELDS: dict[str, set[str]] = {
+    "work_package": {"project", "type", "status", "priority", "assignee", "responsible", "version", "parent", "category", "author"},
+    "project": {"status"},
+    "version": {"definingProject"},
+    "membership": {"project", "principal"},
+    "meeting": {"project", "author", "recurringMeeting"},
+    "recurring_meeting": {"project"},
+    "time_entry": {"workPackage", "project"},
+    "news": {"project", "author"},
+    "category": {"project"},
+    "wiki_page": {"project"},
+    "budget": {"project"},
+    "document": {"project", "author"},
+}
+
+
+COLLECTION_KEYS = {"_type", "total", "count", "pageSize", "offset", "_embedded"}
+
+
+def _filter_fields(data: Any, common_set: set[str], link_set: set[str] | None = None) -> Any:
+    """Filter a dict or list of dicts to only the common field set. Also filters _links if link_set provided."""
+    if isinstance(data, dict):
+        if "_embedded" in data and "elements" in data["_embedded"] and isinstance(data["_embedded"]["elements"], list):
+            filtered_elements = _filter_fields(data["_embedded"]["elements"], common_set, link_set)
+            result: dict[str, Any] = {k: v for k, v in data.items() if k in COLLECTION_KEYS}
+            result["_embedded"] = {"elements": filtered_elements}
+            return result
+        filtered = {k: v for k, v in data.items() if k in common_set}
+        if link_set is not None and "_links" in data and isinstance(data["_links"], dict):
+            filtered["_links"] = {k: v for k, v in data["_links"].items() if k in link_set}
+        return filtered
+    if isinstance(data, list):
+        return [_filter_fields(item, common_set, link_set) for item in data]
+    return data
+
+
 class OpenProjectClient:
     """HTTP client for OpenProject API v3.
 
@@ -102,21 +173,34 @@ class OpenProjectClient:
             params["filters"] = filters
         if sort_by:
             params["sortBy"] = sort_by
-        return self._get("/work_packages", params=params)
+        data = self._get("/work_packages", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["work_package"], LINK_FIELDS.get("work_package"))
+        return data
 
-    def create_work_package(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/work_packages", json=payload)
+    def create_work_package(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/work_packages", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["work_package"], LINK_FIELDS.get("work_package"))
+        return data
 
-    def get_work_package_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/work_packages/{id}")
+    def get_work_package_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/work_packages/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["work_package"], LINK_FIELDS.get("work_package"))
+        return data
 
     def update_work_package(
-        self, id: int, payload: dict[str, Any]
+        self, id: int, payload: dict[str, Any], include_all_fields: bool = False
     ) -> dict[str, Any]:
-        return self._patch(f"/work_packages/{id}", json=payload)
+        data = self._patch(f"/work_packages/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["work_package"], LINK_FIELDS.get("work_package"))
+        return data
 
     def delete_work_package(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/work_packages/{id}")
+        self._delete(f"/work_packages/{id}")
+        return {"message": "Work package successfully deleted."}
 
     def get_work_package_activities(
         self, id: int, page_size: int = 20, offset: int = 1
@@ -174,19 +258,32 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/projects", params=params)
+        data = self._get("/projects", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["project"], LINK_FIELDS.get("project"))
+        return data
 
-    def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/projects", json=payload)
+    def create_project(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/projects", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["project"], LINK_FIELDS.get("project"))
+        return data
 
-    def get_project_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/projects/{id}")
+    def get_project_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/projects/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["project"], LINK_FIELDS.get("project"))
+        return data
 
-    def update_project(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/projects/{id}", json=payload)
+    def update_project(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/projects/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["project"], LINK_FIELDS.get("project"))
+        return data
 
     def delete_project(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/projects/{id}")
+        self._delete(f"/projects/{id}")
+        return {"message": "Project successfully deleted."}
 
     def copy_project(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
         return self._post(f"/projects/{id}/copy", json=payload)
@@ -200,19 +297,32 @@ class OpenProjectClient:
         include_all_fields: bool = False,
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get("/versions", params=params)
+        data = self._get("/versions", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["version"], LINK_FIELDS.get("version"))
+        return data
 
-    def create_version(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/versions", json=payload)
+    def create_version(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/versions", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["version"], LINK_FIELDS.get("version"))
+        return data
 
-    def get_version_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/versions/{id}")
+    def get_version_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/versions/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["version"], LINK_FIELDS.get("version"))
+        return data
 
-    def update_version(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/versions/{id}", json=payload)
+    def update_version(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/versions/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["version"], LINK_FIELDS.get("version"))
+        return data
 
     def delete_version(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/versions/{id}")
+        self._delete(f"/versions/{id}")
+        return {"message": "Version successfully deleted."}
 
     # ─── Memberships ──────────────────────────────────────────────────
 
@@ -226,19 +336,32 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/memberships", params=params)
+        data = self._get("/memberships", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["membership"], LINK_FIELDS.get("membership"))
+        return data
 
-    def create_membership(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/memberships", json=payload)
+    def create_membership(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/memberships", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["membership"], LINK_FIELDS.get("membership"))
+        return data
 
-    def get_membership_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/memberships/{id}")
+    def get_membership_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/memberships/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["membership"], LINK_FIELDS.get("membership"))
+        return data
 
-    def update_membership(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/memberships/{id}", json=payload)
+    def update_membership(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/memberships/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["membership"], LINK_FIELDS.get("membership"))
+        return data
 
     def delete_membership(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/memberships/{id}")
+        self._delete(f"/memberships/{id}")
+        return {"message": "Membership successfully deleted."}
 
     # ─── Users ────────────────────────────────────────────────────────
 
@@ -252,19 +375,32 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/users", params=params)
+        data = self._get("/users", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["user"])
+        return data
 
-    def get_user_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/users/{id}")
+    def get_user_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/users/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["user"])
+        return data
 
-    def create_user(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/users", json=payload)
+    def create_user(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/users", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["user"])
+        return data
 
-    def update_user(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/users/{id}", json=payload)
+    def update_user(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/users/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["user"])
+        return data
 
     def delete_user(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/users/{id}")
+        self._delete(f"/users/{id}")
+        return {"message": "User successfully deleted."}
 
     # ─── Groups ───────────────────────────────────────────────────────
 
@@ -275,19 +411,32 @@ class OpenProjectClient:
         include_all_fields: bool = False,
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get("/groups", params=params)
+        data = self._get("/groups", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["group"])
+        return data
 
-    def get_group_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/groups/{id}")
+    def get_group_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/groups/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["group"])
+        return data
 
-    def create_group(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/groups", json=payload)
+    def create_group(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/groups", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["group"])
+        return data
 
-    def update_group(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/groups/{id}", json=payload)
+    def update_group(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/groups/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["group"])
+        return data
 
     def delete_group(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/groups/{id}")
+        self._delete(f"/groups/{id}")
+        return {"message": "Group successfully deleted."}
 
     # ─── Statuses ─────────────────────────────────────────────────────
 
@@ -298,10 +447,16 @@ class OpenProjectClient:
         include_all_fields: bool = False,
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get("/statuses", params=params)
+        data = self._get("/statuses", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["status"])
+        return data
 
-    def get_status_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/statuses/{id}")
+    def get_status_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/statuses/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["status"])
+        return data
 
     # ─── Types ────────────────────────────────────────────────────────
 
@@ -312,10 +467,16 @@ class OpenProjectClient:
         include_all_fields: bool = False,
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get("/types", params=params)
+        data = self._get("/types", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["type"])
+        return data
 
-    def get_type_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/types/{id}")
+    def get_type_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/types/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["type"])
+        return data
 
     # ─── Priorities ───────────────────────────────────────────────────
 
@@ -326,10 +487,16 @@ class OpenProjectClient:
         include_all_fields: bool = False,
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get("/priorities", params=params)
+        data = self._get("/priorities", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["priority"])
+        return data
 
-    def get_priority_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/priorities/{id}")
+    def get_priority_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/priorities/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["priority"])
+        return data
 
     # ─── Roles ────────────────────────────────────────────────────────
 
@@ -340,10 +507,16 @@ class OpenProjectClient:
         include_all_fields: bool = False,
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get("/roles", params=params)
+        data = self._get("/roles", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["role"])
+        return data
 
-    def get_role_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/roles/{id}")
+    def get_role_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/roles/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["role"])
+        return data
 
     # ─── Principals ───────────────────────────────────────────────────
 
@@ -357,42 +530,66 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/principals", params=params)
+        data = self._get("/principals", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["principal"])
+        return data
 
-    def get_principal_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/principals/{id}")
+    def get_principal_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/principals/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["principal"])
+        return data
 
     # ─── Categories ───────────────────────────────────────────────────
 
-    def get_category_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/categories/{id}")
+    def get_category_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/categories/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["category"], LINK_FIELDS.get("category"))
+        return data
 
     def list_project_categories(
-        self, project_id: int, page_size: int = 20, offset: int = 1
+        self, project_id: int, page_size: int = 20, offset: int = 1, include_all_fields: bool = False
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get(f"/projects/{project_id}/categories", params=params)
+        data = self._get(f"/projects/{project_id}/categories", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["category"], LINK_FIELDS.get("category"))
+        return data
 
     # ─── Wiki Pages ───────────────────────────────────────────────────
 
-    def get_wiki_page_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/wiki_pages/{id}")
+    def get_wiki_page_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/wiki_pages/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["wiki_page"], LINK_FIELDS.get("wiki_page"))
+        return data
 
     # ─── Budgets ──────────────────────────────────────────────────────
 
-    def get_budget_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/budgets/{id}")
+    def get_budget_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/budgets/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["budget"], LINK_FIELDS.get("budget"))
+        return data
 
     def list_project_budgets(
-        self, project_id: int, page_size: int = 20, offset: int = 1
+        self, project_id: int, page_size: int = 20, offset: int = 1, include_all_fields: bool = False
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get(f"/projects/{project_id}/budgets", params=params)
+        data = self._get(f"/projects/{project_id}/budgets", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["budget"], LINK_FIELDS.get("budget"))
+        return data
 
     # ─── Cost Types ───────────────────────────────────────────────────
 
-    def get_cost_type_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/cost_types/{id}")
+    def get_cost_type_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/cost_types/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["cost_type"])
+        return data
 
     # ─── Notifications ────────────────────────────────────────────────
 
@@ -406,10 +603,16 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/notifications", params=params)
+        data = self._get("/notifications", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["notification"])
+        return data
 
-    def get_notification_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/notifications/{id}")
+    def get_notification_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/notifications/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["notification"])
+        return data
 
     # ─── Days / Calendar ──────────────────────────────────────────────
 
@@ -423,7 +626,10 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/days", params=params)
+        data = self._get("/days", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["day"])
+        return data
 
     def list_non_working_days(
         self,
@@ -435,10 +641,16 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/days/non_working", params=params)
+        data = self._get("/days/non_working", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["non_working_day"])
+        return data
 
-    def get_non_working_day_by_date(self, date: str) -> dict[str, Any]:
-        return self._get(f"/days/non_working/{date}")
+    def get_non_working_day_by_date(self, date: str, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/days/non_working/{date}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["non_working_day"])
+        return data
 
     def list_week_days(
         self,
@@ -447,15 +659,24 @@ class OpenProjectClient:
         include_all_fields: bool = False,
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get("/days/week", params=params)
+        data = self._get("/days/week", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["week_day"])
+        return data
 
-    def get_week_day_by_number(self, day: int) -> dict[str, Any]:
-        return self._get(f"/days/week/{day}")
+    def get_week_day_by_number(self, day: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/days/week/{day}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["week_day"])
+        return data
 
     # ─── Attachments (metadata only) ─────────────────────────────────
 
-    def get_attachment_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/attachments/{id}")
+    def get_attachment_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/attachments/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["attachment"])
+        return data
 
     # ─── Documents ────────────────────────────────────────────────────
 
@@ -469,13 +690,22 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/documents", params=params)
+        data = self._get("/documents", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["document"], LINK_FIELDS.get("document"))
+        return data
 
-    def get_document_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/documents/{id}")
+    def get_document_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/documents/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["document"], LINK_FIELDS.get("document"))
+        return data
 
-    def update_document(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/documents/{id}", json=payload)
+    def update_document(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/documents/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["document"], LINK_FIELDS.get("document"))
+        return data
 
     # ─── Emoji Reactions ──────────────────────────────────────────────
 
@@ -502,13 +732,17 @@ class OpenProjectClient:
         include_all_fields: bool = False,
     ) -> dict[str, Any]:
         params = {"pageSize": page_size, "offset": offset}
-        return self._get("/reminders", params=params)
+        data = self._get("/reminders", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["reminder"])
+        return data
 
-    def update_reminder(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
+    def update_reminder(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
         return self._patch(f"/reminders/{id}", json=payload)
 
     def delete_reminder(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/reminders/{id}")
+        self._delete(f"/reminders/{id}")
+        return {"message": "Reminder successfully deleted."}
 
     # ─── Meetings ─────────────────────────────────────────────────────
 
@@ -522,19 +756,32 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/meetings", params=params)
+        data = self._get("/meetings", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["meeting"], LINK_FIELDS.get("meeting"))
+        return data
 
-    def create_meeting(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/meetings", json=self._normalize_payload(payload))
+    def create_meeting(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/meetings", json=self._normalize_payload(payload))
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["meeting"], LINK_FIELDS.get("meeting"))
+        return data
 
-    def get_meeting_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/meetings/{id}")
+    def get_meeting_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/meetings/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["meeting"], LINK_FIELDS.get("meeting"))
+        return data
 
-    def update_meeting(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/meetings/{id}", json=self._normalize_payload(payload))
+    def update_meeting(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/meetings/{id}", json=self._normalize_payload(payload))
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["meeting"], LINK_FIELDS.get("meeting"))
+        return data
 
     def delete_meeting(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/meetings/{id}")
+        self._delete(f"/meetings/{id}")
+        return {"message": "Meeting successfully deleted."}
 
     def list_meeting_agenda_items(self, meeting_id: int) -> dict[str, Any]:
         return self._get(f"/meetings/{meeting_id}/agenda_items")
@@ -556,7 +803,8 @@ class OpenProjectClient:
         return self._patch(f"/meetings/{meeting_id}/agenda_items/{id}", json=payload)
 
     def delete_meeting_agenda_item(self, meeting_id: int, id: int) -> dict[str, Any]:
-        return self._delete(f"/meetings/{meeting_id}/agenda_items/{id}")
+        self._delete(f"/meetings/{meeting_id}/agenda_items/{id}")
+        return {"message": "Agenda item successfully deleted."}
 
     # ─── Meeting Sections ─────────────────────────────────────────────
 
@@ -572,7 +820,8 @@ class OpenProjectClient:
         return self._patch(f"/meetings/{meeting_id}/sections/{id}", json=payload)
 
     def delete_meeting_section(self, meeting_id: int, id: int) -> dict[str, Any]:
-        return self._delete(f"/meetings/{meeting_id}/sections/{id}")
+        self._delete(f"/meetings/{meeting_id}/sections/{id}")
+        return {"message": "Section successfully deleted."}
 
     # ─── Time Entries ─────────────────────────────────────────────────
 
@@ -586,19 +835,32 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/time_entries", params=params)
+        data = self._get("/time_entries", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["time_entry"], LINK_FIELDS.get("time_entry"))
+        return data
 
-    def create_time_entry(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/time_entries", json=payload)
+    def create_time_entry(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/time_entries", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["time_entry"], LINK_FIELDS.get("time_entry"))
+        return data
 
-    def get_time_entry_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/time_entries/{id}")
+    def get_time_entry_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/time_entries/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["time_entry"], LINK_FIELDS.get("time_entry"))
+        return data
 
-    def update_time_entry(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/time_entries/{id}", json=payload)
+    def update_time_entry(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/time_entries/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["time_entry"], LINK_FIELDS.get("time_entry"))
+        return data
 
     def delete_time_entry(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/time_entries/{id}")
+        self._delete(f"/time_entries/{id}")
+        return {"message": "Time entry successfully deleted."}
 
     # ─── News ─────────────────────────────────────────────────────────
 
@@ -612,19 +874,32 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/news", params=params)
+        data = self._get("/news", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["news"], LINK_FIELDS.get("news"))
+        return data
 
-    def create_news(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/news", json=payload)
+    def create_news(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/news", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["news"], LINK_FIELDS.get("news"))
+        return data
 
-    def get_news_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/news/{id}")
+    def get_news_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/news/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["news"], LINK_FIELDS.get("news"))
+        return data
 
-    def update_news(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/news/{id}", json=payload)
+    def update_news(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/news/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["news"], LINK_FIELDS.get("news"))
+        return data
 
     def delete_news(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/news/{id}")
+        self._delete(f"/news/{id}")
+        return {"message": "News successfully deleted."}
 
     # ─── Recurring Meetings ───────────────────────────────────────────
 
@@ -638,21 +913,34 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/recurring_meetings", params=params)
+        data = self._get("/recurring_meetings", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["recurring_meeting"], LINK_FIELDS.get("recurring_meeting"))
+        return data
 
-    def create_recurring_meeting(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/recurring_meetings", json=self._normalize_payload(payload))
+    def create_recurring_meeting(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/recurring_meetings", json=self._normalize_payload(payload))
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["recurring_meeting"], LINK_FIELDS.get("recurring_meeting"))
+        return data
 
-    def get_recurring_meeting_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/recurring_meetings/{id}")
+    def get_recurring_meeting_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/recurring_meetings/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["recurring_meeting"], LINK_FIELDS.get("recurring_meeting"))
+        return data
 
     def update_recurring_meeting(
-        self, id: int, payload: dict[str, Any]
+        self, id: int, payload: dict[str, Any], include_all_fields: bool = False
     ) -> dict[str, Any]:
-        return self._patch(f"/recurring_meetings/{id}", json=self._normalize_payload(payload))
+        data = self._patch(f"/recurring_meetings/{id}", json=self._normalize_payload(payload))
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["recurring_meeting"], LINK_FIELDS.get("recurring_meeting"))
+        return data
 
     def delete_recurring_meeting(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/recurring_meetings/{id}")
+        self._delete(f"/recurring_meetings/{id}")
+        return {"message": "Recurring meeting successfully deleted."}
 
     # ─── Grids ────────────────────────────────────────────────────────
 
@@ -666,19 +954,32 @@ class OpenProjectClient:
         params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
         if filters:
             params["filters"] = filters
-        return self._get("/grids", params=params)
+        data = self._get("/grids", params=params)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["grid"])
+        return data
 
-    def create_grid(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/grids", json=payload)
+    def create_grid(self, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._post("/grids", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["grid"])
+        return data
 
-    def get_grid_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/grids/{id}")
+    def get_grid_by_id(self, id: int, include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._get(f"/grids/{id}")
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["grid"])
+        return data
 
-    def update_grid(self, id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._patch(f"/grids/{id}", json=payload)
+    def update_grid(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
+        data = self._patch(f"/grids/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["grid"])
+        return data
 
     def delete_grid(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/grids/{id}")
+        self._delete(f"/grids/{id}")
+        return {"message": "Grid successfully deleted."}
 
     # ─── Job Status ─────────────────────────────────────────────────
 

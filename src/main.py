@@ -7,7 +7,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from src.client import OpenProjectClient
+from src.client import OpenProjectClient, ALLOW_ALL_AGGREGATE
 
 API_KEY = os.environ.get("API_KEY", "")
 MCP_SERVER_PORT = int(os.environ.get("MCP_SERVER_PORT", "6893"))
@@ -325,7 +325,7 @@ def list_work_packages(
         filter_str = _json.dumps(filters)
     return get_client().list_work_packages(
         page_size=page_size, offset=offset, filters=filter_str,
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -379,17 +379,17 @@ def create_work_package(
         schedule_manually=schedule_manually,
         ignore_non_working_days=ignore_non_working_days, category_id=category_id,
     )
-    return get_client().create_work_package(_build_wp_payload(data))
+    return get_client().create_work_package(_build_wp_payload(data), ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
-def get_work_package_by_id(id: int) -> dict[str, Any]:
+def get_work_package_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single work package by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_work_package_by_id(id)
+    return get_client().get_work_package_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -467,7 +467,7 @@ def update_work_package(
         payload["percentageDone"] = percentage_done
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_work_package(id, payload)
+    return get_client().update_work_package(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -600,7 +600,7 @@ def list_projects(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_projects(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -643,17 +643,17 @@ def create_project(
         payload["description"] = {"format": "markdown", "raw": description}
     if status_explanation:
         payload["statusExplanation"] = {"format": "markdown", "raw": status_explanation}
-    return get_client().create_project(payload)
+    return get_client().create_project(payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
-def get_project_by_id(id: int) -> dict[str, Any]:
+def get_project_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single project by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_project_by_id(id)
+    return get_client().get_project_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -698,7 +698,7 @@ def update_project(
         payload["statusExplanation"] = {"format": "markdown", "raw": status_explanation}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_project(id, payload)
+    return get_client().update_project(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -748,7 +748,7 @@ def list_versions(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_versions(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -785,17 +785,17 @@ def create_version(
         payload["startDate"] = start_date
     if end_date:
         payload["endDate"] = end_date
-    return get_client().create_version(payload)
+    return get_client().create_version(payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
-def get_version_by_id(id: int) -> dict[str, Any]:
+def get_version_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single version by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_version_by_id(id)
+    return get_client().get_version_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -836,7 +836,7 @@ def update_version(
         payload["endDate"] = end_date
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_version(id, payload)
+    return get_client().update_version(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -872,7 +872,7 @@ def list_memberships(
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
     return get_client().list_memberships(
         page_size=page_size, offset=offset, filters=filters,
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -894,13 +894,13 @@ def create_membership(
 
 
 @mcp.tool()
-def get_membership_by_id(id: int) -> dict[str, Any]:
+def get_membership_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single membership by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_membership_by_id(id)
+    return get_client().get_membership_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -930,7 +930,7 @@ def update_membership(
     payload: dict[str, Any] = {"_links": links}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_membership(id, payload)
+    return get_client().update_membership(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -962,18 +962,18 @@ def list_users(
     """
     return get_client().list_users(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
 @mcp.tool()
-def get_user_by_id(id: int) -> dict[str, Any]:
+def get_user_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single user by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_user_by_id(id)
+    return get_client().get_user_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -1033,7 +1033,7 @@ def update_user(
         payload["language"] = language
     if admin is not None:
         payload["admin"] = admin
-    return get_client().update_user(id, payload)
+    return get_client().update_user(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -1062,18 +1062,18 @@ def list_groups(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_groups(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
 @mcp.tool()
-def get_group_by_id(id: int) -> dict[str, Any]:
+def get_group_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single group by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_group_by_id(id)
+    return get_client().get_group_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -1092,7 +1092,7 @@ def create_group(
         payload["_links"] = {
             "members": [{"href": f"/api/v3/users/{uid}"} for uid in member_ids]
         }
-    return get_client().create_group(payload)
+    return get_client().create_group(payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -1115,7 +1115,7 @@ def update_group(
         payload["_links"] = {
             "members": [{"href": f"/api/v3/users/{uid}"} for uid in member_ids]
         }
-    return get_client().update_group(id, payload)
+    return get_client().update_group(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -1144,18 +1144,18 @@ def list_statuses(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_statuses(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
 @mcp.tool()
-def get_status_by_id(id: int) -> dict[str, Any]:
+def get_status_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single status by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_status_by_id(id)
+    return get_client().get_status_by_id(id, include_all_fields=include_all_fields)
 
 
 # ─── Type Tools ───────────────────────────────────────────────────────
@@ -1174,18 +1174,18 @@ def list_types(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_types(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
 @mcp.tool()
-def get_type_by_id(id: int) -> dict[str, Any]:
+def get_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single type by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_type_by_id(id)
+    return get_client().get_type_by_id(id, include_all_fields=include_all_fields)
 
 
 # ─── Priority Tools ───────────────────────────────────────────────────
@@ -1204,18 +1204,18 @@ def list_priorities(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_priorities(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
 @mcp.tool()
-def get_priority_by_id(id: int) -> dict[str, Any]:
+def get_priority_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single priority by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_priority_by_id(id)
+    return get_client().get_priority_by_id(id, include_all_fields=include_all_fields)
 
 
 # ─── Role Tools ───────────────────────────────────────────────────────
@@ -1234,18 +1234,18 @@ def list_roles(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_roles(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
 @mcp.tool()
-def get_role_by_id(id: int) -> dict[str, Any]:
+def get_role_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single role by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_role_by_id(id)
+    return get_client().get_role_by_id(id, include_all_fields=include_all_fields)
 
 
 # ─── Principal Tools ──────────────────────────────────────────────────
@@ -1267,30 +1267,30 @@ def list_principals(
     """
     return get_client().list_principals(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
 @mcp.tool()
-def get_principal_by_id(id: int) -> dict[str, Any]:
+def get_principal_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single principal by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_principal_by_id(id)
+    return get_client().get_principal_by_id(id, include_all_fields=include_all_fields)
 
 
 # ─── Category Tools ───────────────────────────────────────────────────
 
 @mcp.tool()
-def get_category_by_id(id: int) -> dict[str, Any]:
+def get_category_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single category by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_category_by_id(id)
+    return get_client().get_category_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -1312,25 +1312,25 @@ def list_project_categories(
 # ─── Wiki Page Tools ──────────────────────────────────────────────────
 
 @mcp.tool()
-def get_wiki_page_by_id(id: int) -> dict[str, Any]:
+def get_wiki_page_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single wiki page by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_wiki_page_by_id(id)
+    return get_client().get_wiki_page_by_id(id, include_all_fields=include_all_fields)
 
 
 # ─── Budget Tools ─────────────────────────────────────────────────────
 
 @mcp.tool()
-def get_budget_by_id(id: int) -> dict[str, Any]:
+def get_budget_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single budget by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_budget_by_id(id)
+    return get_client().get_budget_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -1350,13 +1350,13 @@ def list_project_budgets(
 
 
 @mcp.tool()
-def get_cost_type_by_id(id: int) -> dict[str, Any]:
+def get_cost_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single cost type by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_cost_type_by_id(id)
+    return get_client().get_cost_type_by_id(id, include_all_fields=include_all_fields)
 
 
 # ─── Notification Tools ───────────────────────────────────────────────
@@ -1378,18 +1378,18 @@ def list_notifications(
     """
     return get_client().list_notifications(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
 @mcp.tool()
-def get_notification_by_id(id: int) -> dict[str, Any]:
+def get_notification_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single notification by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_notification_by_id(id)
+    return get_client().get_notification_by_id(id, include_all_fields=include_all_fields)
 
 
 # ─── Days / Calendar Tools ────────────────────────────────────────────
@@ -1422,7 +1422,7 @@ def list_days(
     filter_str = _json.dumps(filters) if filters else None
     return get_client().list_days(
         page_size=page_size, offset=offset, filters=filter_str,
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -1450,7 +1450,7 @@ def list_non_working_days(
     filter_str = _json.dumps(filters) if filters else None
     return get_client().list_non_working_days(
         page_size=page_size, offset=offset, filters=filter_str,
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -1478,7 +1478,7 @@ def list_week_days(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_week_days(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -1495,13 +1495,13 @@ def get_week_day_by_number(day: int) -> dict[str, Any]:
 # ─── Attachment Tools (metadata only) ────────────────────────────────
 
 @mcp.tool()
-def get_attachment_by_id(id: int) -> dict[str, Any]:
+def get_attachment_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get attachment metadata by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_attachment_by_id(id)
+    return get_client().get_attachment_by_id(id, include_all_fields=include_all_fields)
 
 
 # ─── Document Tools ───────────────────────────────────────────────────
@@ -1527,18 +1527,18 @@ def list_documents(
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
     return get_client().list_documents(
         page_size=page_size, offset=offset, filters=filters,
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
 @mcp.tool()
-def get_document_by_id(id: int) -> dict[str, Any]:
+def get_document_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single document by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_document_by_id(id)
+    return get_client().get_document_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -1563,7 +1563,7 @@ def update_document(
         payload["description"] = {"format": "markdown", "raw": description}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_document(id, payload)
+    return get_client().update_document(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 # ─── Emoji Reaction Tools ─────────────────────────────────────────────
@@ -1629,7 +1629,7 @@ def list_reminders(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_reminders(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -1655,7 +1655,7 @@ def update_reminder(
         payload["minutesBefore"] = minutes_before
     if note is not None:
         payload["notes"] = note
-    return get_client().update_reminder(id, payload)
+    return get_client().update_reminder(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -1691,7 +1691,7 @@ def list_meetings(
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
     return get_client().list_meetings(
         page_size=page_size, offset=offset, filters=filters,
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -1725,13 +1725,13 @@ def create_meeting(
 
 
 @mcp.tool()
-def get_meeting_by_id(id: int) -> dict[str, Any]:
+def get_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single meeting by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_meeting_by_id(id)
+    return get_client().get_meeting_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -1768,7 +1768,7 @@ def update_meeting(
         payload["notify"] = notify
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_meeting(id, payload)
+    return get_client().update_meeting(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -1978,7 +1978,7 @@ def list_recurring_meetings(
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
     return get_client().list_recurring_meetings(
         page_size=page_size, offset=offset, filters=filters,
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -2021,17 +2021,17 @@ def create_recurring_meeting(
         payload["countLimit"] = count_limit
     if end_date is not None:
         payload["endDate"] = end_date
-    return get_client().create_recurring_meeting(payload)
+    return get_client().create_recurring_meeting(payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
-def get_recurring_meeting_by_id(id: int) -> dict[str, Any]:
+def get_recurring_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single recurring meeting by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_recurring_meeting_by_id(id)
+    return get_client().get_recurring_meeting_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -2068,7 +2068,7 @@ def update_recurring_meeting(
         payload["intervalValue"] = interval_value
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_recurring_meeting(id, payload)
+    return get_client().update_recurring_meeting(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -2109,7 +2109,7 @@ def list_time_entries(
     filter_str = _json.dumps(filters) if filters else None
     return get_client().list_time_entries(
         page_size=page_size, offset=offset, filters=filter_str,
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -2145,17 +2145,17 @@ def create_time_entry(
         payload["spentOn"] = spent_on
     if comment:
         payload["comment"] = {"format": "markdown", "raw": comment}
-    return get_client().create_time_entry(payload)
+    return get_client().create_time_entry(payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
-def get_time_entry_by_id(id: int) -> dict[str, Any]:
+def get_time_entry_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single time entry by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_time_entry_by_id(id)
+    return get_client().get_time_entry_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -2184,7 +2184,7 @@ def update_time_entry(
         payload["comment"] = {"format": "markdown", "raw": comment}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_time_entry(id, payload)
+    return get_client().update_time_entry(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -2220,7 +2220,7 @@ def list_news(
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
     return get_client().list_news(
         page_size=page_size, offset=offset, filters=filters,
-        include_all_fields=include_all_fields
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -2247,17 +2247,17 @@ def create_news(
         payload["summary"] = summary
     if description:
         payload["description"] = {"format": "markdown", "raw": description}
-    return get_client().create_news(payload)
+    return get_client().create_news(payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
-def get_news_by_id(id: int) -> dict[str, Any]:
+def get_news_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single news item by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_news_by_id(id)
+    return get_client().get_news_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -2286,7 +2286,7 @@ def update_news(
         payload["description"] = {"format": "markdown", "raw": description}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_news(id, payload)
+    return get_client().update_news(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -2315,7 +2315,7 @@ def list_grids(
         include_all_fields (optional): Include all fields in response.
     """
     return get_client().list_grids(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
+        page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
 
 
@@ -2343,17 +2343,17 @@ def create_grid(
     }
     if scope_href:
         payload["_links"] = {"scope": {"href": scope_href, "type": "text/html"}}
-    return get_client().create_grid(payload)
+    return get_client().create_grid(payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
-def get_grid_by_id(id: int) -> dict[str, Any]:
+def get_grid_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single grid by ID.
 
     Args:
         id (required): ID of the resource.
     """
-    return get_client().get_grid_by_id(id)
+    return get_client().get_grid_by_id(id, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -2382,7 +2382,7 @@ def update_grid(
         payload["widgets"] = _build_widgets_payload(widgets)
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_grid(id, payload)
+    return get_client().update_grid(id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
