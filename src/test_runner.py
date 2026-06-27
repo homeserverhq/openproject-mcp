@@ -289,6 +289,12 @@ async def async_main() -> None:
     tr.print_phase("Phase 1 — Reference Data")
 
     seed: dict[str, Any] = {}
+    store: dict[str, Any] = {}
+
+    _SINGULAR = {
+        "Statuses": "status", "Types": "type", "Priorities": "priority",
+        "Roles": "role", "Users": "user", "Principals": "principal",
+    }
 
     ref_domains = [
         ("Statuses", "list_statuses", "get_status_by_id"),
@@ -311,35 +317,41 @@ async def async_main() -> None:
         content = extract_content(result)
         first_id = get_first_id(content)
         if first_id is not None:
-            seed[label.lower().rstrip("s") + "_id"] = first_id
+            seed[_SINGULAR[label] + "_id"] = first_id
             await tr.run(session, label, get_tool, {"id": first_id})
         else:
             await tr.run(session, label, get_tool, {"id": first_id} if first_id else {})
 
-    # Extract well-known seed values
-    sid_status = seed.get("statuses_id", 1)
-    sid_type = seed.get("types_id", 1)
-    sid_priority = seed.get("priorities_id", 1)
-    sid_role = 5  # Project admin — first valid project role in seeded list
-    sid_user = seed.get("users_id", 4)
+    # Well-known reference data IDs — None if discovery failed, downstream tools fail honestly
+    sid_status = seed.get("status_id")
+    sid_type = seed.get("type_id")
+    sid_priority = seed.get("priority_id")
+    sid_user = seed.get("user_id")
 
-    # Discover existing project IDs for use in read-only queries
-    any_project_id = 1
+    # Discover a project role for membership tests
+    sid_role = None
+    if "list_roles" in tool_names:
+        rr = await session.call_tool("list_roles", {"page_size": 50})
+        rc = extract_content(rr)
+        for role_item in get_list_items(rc):
+            if isinstance(role_item, dict):
+                rname = str(role_item.get("name", "")).lower()
+                if rname in ("member", "project admin", "reader"):
+                    sid_role = role_item.get("id")
+                    break
 
-    # Discover additional reference IDs for categories, budgets, wikipages, attachments
-    extra_discover = [
-        ("categories_id", "list_project_categories", {"project_id": any_project_id}),
-        ("budgets_id", "list_project_budgets", {"project_id": any_project_id}),
-    ]
-    for skey, list_tool, list_args in extra_discover:
-        if list_tool in tool_names:
-            dr = await session.call_tool(list_tool, list_args)
-            dc = extract_content(dr)
-            did = get_first_id(dc)
-            if did and skey not in seed:
-                seed[skey] = did
+    # Create persistent project — used by ALL subsequent tests, deleted at end
+    ppn = make_name("base")
+    pp_result = await tr.run(session, "create base project", "create_project", {
+        "name": ppn, "identifier": ppn, "description": "Persistent base project", "public": True, "active": True,
+    })
+    pp_content = extract_content(pp_result)
+    ppid = pp_content.get("id") if isinstance(pp_content, dict) else None
+    if ppid:
+        store["persistent_project_id"] = ppid
+        store["project_ident"] = ppn
 
-    # Discover wiki page and attachment IDs from existing work packages
+    # Discover wiki/attachment IDs from existing work packages
     if "list_work_packages" in tool_names:
         wr = await session.call_tool("list_work_packages", {"page_size": 50})
         wc = extract_content(wr)
@@ -408,18 +420,12 @@ async def async_main() -> None:
     nid = await _get_id("notification", "list_notifications")
     await tr.run(session, "get notification", "get_notification_by_id", {"id": nid} if nid else {})
 
-    cat_id = await _get_id("category", "list_project_categories", {"project_id": any_project_id})
-    await tr.run(session, "get category", "get_category_by_id", {"id": cat_id} if cat_id else {})
-
-    bud_id = await _get_id("budget", "list_project_budgets", {"project_id": any_project_id})
-    await tr.run(session, "get budget", "get_budget_by_id", {"id": bud_id} if bud_id else {})
-
     # Fixed: weekday, paginated, and date range tests
     fixed_tests = [
         ("get_week_day_mon", "get_week_day_by_number", {"day": 1}, "success"),
         ("get_week_day_sun", "get_week_day_by_number", {"day": 7}, "success"),
-        ("get_wiki_page_by_id", "get_wiki_page_by_id", {"id": seed.get("wikipages_id", 1)}, "success"),
-        ("get_attachment_by_id", "get_attachment_by_id", {"id": seed.get("attachments_id", 1)}, "success"),
+        ("get_wiki_page_by_id", "get_wiki_page_by_id", {"id": seed.get("wikipages_id")}, "success"),
+        ("get_attachment_by_id", "get_attachment_by_id", {"id": seed.get("attachments_id")}, "success"),
         ("list_projects_paged", "list_projects", {"page_size": 5, "offset": 1}, "success"),
         ("list_work_packages_paged", "list_work_packages", {"page_size": 5}, "success"),
         ("list_versions_paged", "list_versions", {"page_size": 5}, "success"),
@@ -443,18 +449,6 @@ async def async_main() -> None:
     # Phase 3: CRUD cycles — fully self-contained
     # ══════════════════════════════════════════════════════════════════
     tr.print_phase("Phase 3 — CRUD Cycles")
-
-    store: dict[str, Any] = {}
-
-    # Create a persistent project — used by all dependent CRUDs, deleted at end of Phase 3
-    ppn = make_name("base")
-    pr = await tr.run(session, "create project", "create_project", {
-        "name": ppn, "identifier": ppn, "description": "Persistent base project", "public": True, "active": True,
-    })
-    ppid = extract_content(pr).get("id") if isinstance(extract_content(pr), dict) else None
-    if ppid:
-        store["persistent_project_id"] = ppid
-        store["project_ident"] = ppn
 
     # ────────── PROJECT CRUD (self-contained) ──────────
     if "create_project" in tool_names and "delete_project" in tool_names:
@@ -487,10 +481,18 @@ async def async_main() -> None:
         await asyncio.sleep(0.3)
         await tr.run(session, "verify-delete", "get_project_by_id", {"id": pid} if pid else {}, expect="error")
 
+    # ────────── CATEGORIES & BUDGETS (from persistent project) ──────────
+    ppid = store.get("persistent_project_id")
+    if ppid:
+        cid = await _get_id("category", "list_project_categories", {"project_id": ppid})
+        await tr.run(session, "get category", "get_category_by_id", {"id": cid} if cid else {})
+        bid = await _get_id("budget", "list_project_budgets", {"project_id": ppid})
+        await tr.run(session, "get budget", "get_budget_by_id", {"id": bid} if bid else {})
+
     # ────────── VERSION ──────────
     if "create_version" in tool_names and "delete_version" in tool_names:
         vn = make_name("ver")
-        r = await tr.run(session, "create", "create_version", {"name": vn, "project_id": store.get("persistent_project_id", 1)})
+        r = await tr.run(session, "create", "create_version", {"name": vn, "project_id": store.get("persistent_project_id")})
         vid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
         await tr.run(session, "list", "list_versions", {}, expect="success")
         g = await tr.call(session, "get lock", "get_version_by_id", {"id": vid} if vid else {})
@@ -513,7 +515,7 @@ async def async_main() -> None:
         await tr.run(session, "get group", "get_group_by_id", {"id": gid} if gid else {})
 
         mc = await tr.run(session, "create", "create_membership", {
-            "project_id": store.get("persistent_project_id", 1), "principal_id": gid, "role_ids": [sid_role],
+            "project_id": store.get("persistent_project_id"), "principal_id": gid, "role_ids": [sid_role],
         } if gid else {}, expect="success")
         mid = extract_content(mc).get("id") if isinstance(extract_content(mc), dict) else None
         await tr.run(session, "list", "list_memberships", {}, expect="success")
@@ -528,7 +530,7 @@ async def async_main() -> None:
     if "create_work_package" in tool_names:
         wn = make_name("wp")
         r = await tr.run(session, "create", "create_work_package", {
-            "subject": wn, "project_id": store.get("persistent_project_id", 1), "type_id": sid_type,
+            "subject": wn, "project_id": store.get("persistent_project_id"), "type_id": sid_type,
             "priority_id": sid_priority, "status_id": sid_status,
         })
         wpid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
@@ -549,7 +551,7 @@ async def async_main() -> None:
 
         # Second WP for relation target (self-relation not allowed)
         wp2 = await tr.call(session, "create related wp", "create_work_package", {
-            "subject": wn + "-rel", "project_id": store.get("persistent_project_id", 1),
+            "subject": wn + "-rel", "project_id": store.get("persistent_project_id"),
             "type_id": sid_type, "priority_id": sid_priority, "status_id": sid_status,
         })
         wp2id = extract_content(wp2).get("id") if isinstance(extract_content(wp2), dict) else None
@@ -588,7 +590,7 @@ async def async_main() -> None:
     if "create_meeting" in tool_names:
         mn = make_name("mtg")
         r = await tr.run(session, "create", "create_meeting", {
-            "title": mn, "project_id": store.get("persistent_project_id", 1), "start_time": "2026-07-01T10:00:00Z", "end_time": "2026-07-01T11:00:00Z",
+            "title": mn, "project_id": store.get("persistent_project_id"), "start_time": "2026-07-01T10:00:00Z", "end_time": "2026-07-01T11:00:00Z",
         }, expect="success")
         mtid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
 
@@ -627,7 +629,7 @@ async def async_main() -> None:
     # ────────── NEWS ──────────
     if "create_news" in tool_names and "delete_news" in tool_names:
         nn = make_name("news")
-        r = await tr.run(session, "create", "create_news", {"title": nn, "project_id": store.get("persistent_project_id", 1)})
+        r = await tr.run(session, "create", "create_news", {"title": nn, "project_id": store.get("persistent_project_id")})
         nid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
         await tr.run(session, "list", "list_news", {}, expect="success")
         await tr.run(session, "get", "get_news_by_id", {"id": nid} if nid else {})
@@ -688,7 +690,7 @@ async def async_main() -> None:
     if "create_recurring_meeting" in tool_names and "delete_recurring_meeting" in tool_names:
         rmn = make_name("rm")
         r = await tr.run(session, "create", "create_recurring_meeting", {
-            "project_id": store.get("persistent_project_id", 1), "title": rmn, "frequency": "weekly",
+            "project_id": store.get("persistent_project_id"), "title": rmn, "frequency": "weekly",
             "start_time": "2026-07-01T10:00:00Z", "end_time": "2026-07-01T11:00:00Z",
             "days": [1],
         })
