@@ -1328,50 +1328,6 @@ def delete_meeting_agenda_item(meeting_id: int, id: int) -> dict[str, Any]:
     return get_client().delete_meeting_agenda_item(meeting_id, id)
 
 
-# ─── Meeting Outcome Tools ────────────────────────────────────────────
-
-@mcp.tool()
-def create_meeting_outcome(
-    meeting_id: int,
-    meeting_agenda_item_id: int,
-    outcome_type: str = "simple",
-    text: str = "",
-) -> dict[str, Any]:
-    """Create a meeting outcome. (required: meeting_id, meeting_agenda_item_id, outcome_type)"""
-    return get_client().create_meeting_outcome(meeting_id, meeting_agenda_item_id, {
-        "outcomeType": outcome_type,
-        "text": {"format": "markdown", "raw": text},
-    })
-
-
-@mcp.tool()
-def get_meeting_outcome_by_id(meeting_id: int, id: int) -> dict[str, Any]:
-    """Get a single meeting outcome by ID. (required: meeting_id, id)"""
-    return get_client().get_meeting_outcome_by_id(meeting_id, id)
-
-
-@mcp.tool()
-def update_meeting_outcome(
-    meeting_id: int,
-    id: int,
-    text: str | None = None,
-    lock_version: int | None = None,
-) -> dict[str, Any]:
-    """Update a meeting outcome. (required: meeting_id, id)"""
-    payload: dict[str, Any] = {}
-    if text is not None:
-        payload["text"] = {"format": "markdown", "raw": text}
-    if lock_version is not None:
-        payload["lockVersion"] = lock_version
-    return get_client().update_meeting_outcome(meeting_id, id, payload)
-
-
-@mcp.tool()
-def delete_meeting_outcome(meeting_id: int, id: int) -> dict[str, Any]:
-    """Delete a meeting outcome. (required: meeting_id, id)"""
-    return get_client().delete_meeting_outcome(meeting_id, id)
-
-
 # ─── Meeting Section Tools ────────────────────────────────────────────
 
 @mcp.tool()

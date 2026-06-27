@@ -538,22 +538,6 @@ class OpenProjectClient:
     def delete_meeting_agenda_item(self, meeting_id: int, id: int) -> dict[str, Any]:
         return self._delete(f"/meetings/{meeting_id}/agenda_items/{id}")
 
-    # ─── Meeting Outcomes ─────────────────────────────────────────────
-
-    def create_meeting_outcome(self, meeting_id: int, agenda_item_id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post(f"/meetings/{meeting_id}/agenda_items/{agenda_item_id}/outcomes", json=payload)
-
-    def get_meeting_outcome_by_id(self, meeting_id: int, id: int) -> dict[str, Any]:
-        return self._get(f"/meetings/{meeting_id}/outcomes/{id}")
-
-    def update_meeting_outcome(
-        self, meeting_id: int, id: int, payload: dict[str, Any]
-    ) -> dict[str, Any]:
-        return self._patch(f"/meetings/{meeting_id}/outcomes/{id}", json=payload)
-
-    def delete_meeting_outcome(self, meeting_id: int, id: int) -> dict[str, Any]:
-        return self._delete(f"/meetings/{meeting_id}/outcomes/{id}")
-
     # ─── Meeting Sections ─────────────────────────────────────────────
 
     def create_meeting_section(self, meeting_id: int, payload: dict[str, Any]) -> dict[str, Any]:

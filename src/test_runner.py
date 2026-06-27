@@ -417,9 +417,6 @@ async def async_main() -> None:
     await tr.run(session, "get document", "get_document_by_id", {"id": doc_id} if doc_id else {})
     await tr.run(session, "update document", "update_document", {"id": doc_id} if doc_id else {})
 
-    nid = await _get_id("notification", "list_notifications")
-    await tr.run(session, "get notification", "get_notification_by_id", {"id": nid} if nid else {})
-
     # Discover a non-working day date and test get_non_working_day_by_date
     nwd_date = None
     if "list_non_working_days" in tool_names:
@@ -630,6 +627,22 @@ async def async_main() -> None:
         await asyncio.sleep(0.3)
         await tr.run(session, "verify-delete", "get_work_package_by_id", {"id": wpid} if wpid else {}, expect="error")
 
+        # Generate a notification by creating a WP with mention + assignee, then test get_notification_by_id
+        if sid_user and "delete_work_package" in tool_names:
+            nn = make_name("notif")
+            nr = await tr.run(session, "create notif WP", "create_work_package", {
+                "subject": nn, "project_id": store.get("persistent_project_id"),
+                "type_id": sid_type, "priority_id": sid_priority, "status_id": sid_status,
+                "description": f"Hey @user#{sid_user} check this",
+            })
+            nwid = extract_content(nr).get("id") if isinstance(extract_content(nr), dict) else None
+            if nwid:
+                await asyncio.sleep(8)
+                nid = await _get_id("notification", "list_notifications")
+                await tr.run(session, "get notification", "get_notification_by_id", {"id": nid} if nid else {})
+                await tr.run(session, "delete notif WP", "delete_work_package", {"id": nwid})
+                await asyncio.sleep(0.3)
+
         # Delete test user (used for group member + watcher)
         if suid:
             await tr.run(session, "delete user", "delete_user", {"id": suid})
@@ -654,13 +667,6 @@ async def async_main() -> None:
         agid = extract_content(ac).get("id") if isinstance(extract_content(ac), dict) else None
         await tr.run(session, "get agenda", "get_meeting_agenda_item_by_id", {"meeting_id": mtid, "id": agid} if mtid and agid else {})
         await tr.run(session, "update agenda", "update_meeting_agenda_item", {"meeting_id": mtid, "id": agid, "title": "UpdAg"} if mtid and agid else {})
-
-        # Outcome
-        oc = await tr.run(session, "create outcome", "create_meeting_outcome", {"meeting_id": mtid, "meeting_agenda_item_id": agid, "outcome_type": "simple", "text": "Done"} if mtid and agid else {})
-        ocid = extract_content(oc).get("id") if isinstance(extract_content(oc), dict) else None
-        await tr.run(session, "get outcome", "get_meeting_outcome_by_id", {"meeting_id": mtid, "id": ocid} if mtid and ocid else {})
-        await tr.run(session, "update outcome", "update_meeting_outcome", {"meeting_id": mtid, "id": ocid, "text": "Upd"} if mtid and ocid else {})
-        await tr.run(session, "delete outcome", "delete_meeting_outcome", {"meeting_id": mtid, "id": ocid} if mtid and ocid else {})
 
         await tr.run(session, "delete agenda", "delete_meeting_agenda_item", {"meeting_id": mtid, "id": agid} if mtid and agid else {})
 
