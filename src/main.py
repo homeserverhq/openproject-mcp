@@ -7,6 +7,8 @@ from typing import Any
 
 from fastmcp import FastMCP
 
+from toon_mcp import json_to_toon
+
 from src.client import OpenProjectClient, ALLOW_ALL_AGGREGATE
 
 API_KEY = os.environ.get("API_KEY", "")
@@ -581,9 +583,8 @@ def list_work_package_attachments(
         page_size (optional): Number of items per page.
         offset (optional): Page offset for pagination.
     """
-    return get_client().list_work_package_attachments(id, page_size, offset)
-
-
+    data = get_client().list_work_package_attachments(id, page_size, offset)
+    return {"items": json_to_toon(data)}
 # ─── Project Tools ────────────────────────────────────────────────────
 
 @mcp.tool()
@@ -1306,9 +1307,8 @@ def list_project_categories(
         page_size (optional): Number of items per page.
         offset (optional): Page offset for pagination.
     """
-    return get_client().list_project_categories(project_id, page_size, offset)
-
-
+    data = get_client().list_project_categories(project_id, page_size, offset)
+    return {"items": json_to_toon(data)}
 # ─── Wiki Page Tools ──────────────────────────────────────────────────
 
 @mcp.tool()
@@ -1346,9 +1346,8 @@ def list_project_budgets(
         page_size (optional): Number of items per page.
         offset (optional): Page offset for pagination.
     """
-    return get_client().list_project_budgets(project_id, page_size, offset)
-
-
+    data = get_client().list_project_budgets(project_id, page_size, offset)
+    return {"items": json_to_toon(data)}
 @mcp.tool()
 def get_cost_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single cost type by ID.
@@ -1575,9 +1574,8 @@ def list_emoji_reactions(activity_id: int) -> dict[str, Any]:
     Args:
         activity_id (required): ID of the activity.
     """
-    return get_client().list_emoji_reactions(activity_id)
-
-
+    data = get_client().list_emoji_reactions(activity_id)
+    return {"items": json_to_toon(data)}
 @mcp.tool()
 def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
     """Toggle an emoji reaction on an activity (add or remove).
@@ -1628,9 +1626,10 @@ def list_reminders(
         offset (optional): Page offset for pagination.
         include_all_fields (optional): Include all fields in response.
     """
-    return get_client().list_reminders(
+    data = get_client().list_reminders(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
+    return {"items": json_to_toon(data)}
 
 
 @mcp.tool()
@@ -1788,9 +1787,8 @@ def list_meeting_agenda_items(meeting_id: int) -> dict[str, Any]:
     Args:
         meeting_id (required): ID of the meeting.
     """
-    return get_client().list_meeting_agenda_items(meeting_id)
-
-
+    data = get_client().list_meeting_agenda_items(meeting_id)
+    return {"items": json_to_toon(data)}
 @mcp.tool()
 def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
     """List sections for a meeting.
@@ -1798,9 +1796,8 @@ def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
     Args:
         meeting_id (required): ID of the meeting.
     """
-    return get_client().list_meeting_sections(meeting_id)
-
-
+    data = get_client().list_meeting_sections(meeting_id)
+    return {"items": json_to_toon(data)}
 # ─── Meeting Agenda Item Tools ────────────────────────────────────────
 
 @mcp.tool()

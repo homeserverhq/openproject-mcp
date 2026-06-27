@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+
+from toon_mcp import toon_to_json
 import os
 import random
 import string
@@ -132,10 +134,38 @@ def extract_content(result: dict[str, Any]) -> Any:
     return result
 
 
+TOON_WRAP_KEYS = ("items", "results", "rows", "tree")
+
+
+def _decode_toon_val(val: Any) -> Any:
+    """Decode a TOON-encoded string or pass through raw lists."""
+    if isinstance(val, list):
+        return val
+    if isinstance(val, str):
+        try:
+            return toon_to_json(val)
+        except Exception:
+            pass
+    return val
+
+
 def get_list_items(data: Any) -> list[Any]:
     if isinstance(data, list):
         return data
     if isinstance(data, dict):
+        for key in TOON_WRAP_KEYS:
+            if key in data:
+                decoded = _decode_toon_val(data[key])
+                if isinstance(decoded, list):
+                    return decoded
+                if isinstance(decoded, dict):
+                    if "_embedded" in decoded and "elements" in decoded["_embedded"]:
+                        return decoded["_embedded"]["elements"]
+                    if "_embedded" in decoded:
+                        for v in decoded["_embedded"].values():
+                            if isinstance(v, list):
+                                return v
+                    return [decoded]
         if "_embedded" in data and "elements" in data["_embedded"]:
             return data["_embedded"]["elements"]
         if "_embedded" in data:
@@ -675,24 +705,15 @@ async def async_main() -> None:
 
     # ────────── TIME ENTRY ──────────
     ten = make_name("te")
-    wp_lr = await tr.call(session, "list wps", "list_work_packages", {"page_size": 50})
-    wp_items = get_list_items(extract_content(wp_lr))
-    te_wp_id = None
-    te_proj_id = None
-    for item in wp_items:
-        if isinstance(item, dict):
-            te_wp_id = item.get("id")
-            proj_link = item.get("_links", {}).get("project", {})
-            proj_href = proj_link.get("href", "") if isinstance(proj_link, dict) else ""
-            if proj_href and "/projects/" in proj_href:
-                try:
-                    te_proj_id = int(proj_href.rsplit("/", 1)[-1])
-                except ValueError:
-                    pass
-            break
+    te_ppid = store.get("persistent_project_id")
+    te_wp_r = await tr.call(session, "create te wp", "create_work_package", {
+        "subject": "te-" + ten, "project_id": te_ppid,
+        "type_id": sid_type, "priority_id": sid_priority, "status_id": sid_status,
+    })
+    te_wpid = extract_content(te_wp_r).get("id") if isinstance(extract_content(te_wp_r), dict) else None
     te = await tr.run(session, "create", "create_time_entry", {
-        "project_id": te_proj_id, "work_package_id": te_wp_id, "hours": "PT2H",
-        "spent_on": "2026-06-27", "comment": ten,
+        "project_id": te_ppid, "work_package_id": te_wpid, "hours": "PT2H", "spent_on": "2026-06-27",
+        "comment": ten,
     })
     teid = extract_content(te).get("id") if isinstance(extract_content(te), dict) else None
     await tr.run(session, "get", "get_time_entry_by_id", {"id": teid})

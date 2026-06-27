@@ -89,7 +89,13 @@ def _filter_fields(data: Any, common_set: set[str], link_set: set[str] | None = 
             return result
         filtered = {k: v for k, v in data.items() if k in common_set}
         if link_set is not None and "_links" in data and isinstance(data["_links"], dict):
-            filtered["_links"] = {k: v for k, v in data["_links"].items() if k in link_set}
+            filtered["_links"] = {}
+            for lk, lv in data["_links"].items():
+                if lk in link_set:
+                    if isinstance(lv, dict) and "title" in lv:
+                        filtered["_links"][lk] = {"title": lv["title"]}
+                    else:
+                        filtered["_links"][lk] = lv
         return filtered
     if isinstance(data, list):
         return [_filter_fields(item, common_set, link_set) for item in data]
