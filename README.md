@@ -78,6 +78,15 @@ The MCP server serves at `http://openproject-mcp:80/mcp` (Streamable HTTP).
 
 The server implements 109 MCP tools organized into the following categories:
 
+### 🏗️ Project (6 tools)
+
+- `list_projects` — List all projects
+- `get_project_by_id` — Get a single project by ID
+- `create_project` — Create a new project
+- `update_project` — Update an existing project
+- `delete_project` — Delete a project
+- `copy_project` — Copy a project
+
 ### 📋 Work Package (19 tools)
 
 - `list_work_packages` — List all work packages
@@ -99,15 +108,6 @@ The server implements 109 MCP tools organized into the following categories:
 - `list_reminders` — List all reminders
 - `update_reminder` — Update a reminder
 - `delete_reminder` — Delete a reminder
-
-### 🏗️ Project (6 tools)
-
-- `list_projects` — List all projects
-- `get_project_by_id` — Get a single project by ID
-- `create_project` — Create a new project
-- `update_project` — Update an existing project
-- `delete_project` — Delete a project
-- `copy_project` — Copy a project
 
 ### 🔖 Version (5 tools)
 
