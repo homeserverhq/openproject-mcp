@@ -302,7 +302,16 @@ def list_work_packages(
     type_id: int | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List work packages (paginated). (required: none)"""
+    """List work packages (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        project_id (optional): ID of the project.
+        status_id (optional): ID of the status.
+        type_id (optional): ID of the type.
+        include_all_fields (optional): Include all fields in response.
+    """
     filters: list[dict[str, Any]] = []
     if project_id is not None:
         filters.append({"project": {"operator": "=", "values": [str(project_id)]}})
@@ -340,7 +349,27 @@ def create_work_package(
     ignore_non_working_days: bool = False,
     category_id: int | None = None,
 ) -> dict[str, Any]:
-    """Create a work package. (required: subject, project_id, type_id)"""
+    """Create a work package.
+
+    Args:
+        subject (required): Subject or title.
+        project_id (required): ID of the project.
+        type_id (required): ID of the type.
+        description (optional): Description text in markdown format.
+        status_id (optional): ID of the status.
+        priority_id (optional): ID of the priority.
+        assignee_id (optional): ID of the assigned user.
+        responsible_id (optional): ID of the responsible user.
+        version_id (optional): ID of the version.
+        parent_id (optional): ID of the parent work package.
+        start_date (optional): Start date in YYYY-MM-DD format.
+        due_date (optional): Due date in YYYY-MM-DD format.
+        estimated_time (optional): Estimated time in ISO 8601 duration format (e.g. PT4H).
+        duration (optional): Duration in ISO 8601 format (e.g. P3D).
+        schedule_manually (optional): Enable manual scheduling.
+        ignore_non_working_days (optional): Ignore non-working days in scheduling.
+        category_id (optional): ID of the category.
+    """
     data = WPCreate(
         subject=subject, project_id=project_id, type_id=type_id,
         description=description, status_id=status_id, priority_id=priority_id,
@@ -355,7 +384,11 @@ def create_work_package(
 
 @mcp.tool()
 def get_work_package_by_id(id: int) -> dict[str, Any]:
-    """Get a single work package by ID. (required: id)"""
+    """Get a single work package by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_work_package_by_id(id)
 
 
@@ -379,7 +412,27 @@ def update_work_package(
     percentage_done: int | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a work package. (required: id)"""
+    """Update a work package.
+
+    Args:
+        id (required): ID of the resource.
+        subject (optional): Subject or title.
+        description (optional): Description text in markdown format.
+        status_id (optional): ID of the status.
+        priority_id (optional): ID of the priority.
+        assignee_id (optional): ID of the assigned user.
+        responsible_id (optional): ID of the responsible user.
+        version_id (optional): ID of the version.
+        parent_id (optional): ID of the parent work package.
+        start_date (optional): Start date in YYYY-MM-DD format.
+        due_date (optional): Due date in YYYY-MM-DD format.
+        estimated_time (optional): Estimated time in ISO 8601 duration format (e.g. PT4H).
+        duration (optional): Duration in ISO 8601 format (e.g. P3D).
+        schedule_manually (optional): Enable manual scheduling.
+        ignore_non_working_days (optional): Ignore non-working days in scheduling.
+        percentage_done (optional): Completion percentage (0-100).
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if subject is not None:
         payload["subject"] = subject
@@ -419,7 +472,11 @@ def update_work_package(
 
 @mcp.tool()
 def delete_work_package(id: int) -> dict[str, Any]:
-    """Delete a work package. (required: id)"""
+    """Delete a work package.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_work_package(id)
 
 
@@ -429,19 +486,34 @@ def get_work_package_activities(
     page_size: int = 20,
     offset: int = 1,
 ) -> dict[str, Any]:
-    """List activities (comments/journal entries) on a work package. (required: id)"""
+    """List activities (comments/journal entries) on a work package.
+
+    Args:
+        id (required): ID of the resource.
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+    """
     return get_client().get_work_package_activities(id, page_size, offset)
 
 
 @mcp.tool()
 def add_work_package_comment(id: int, comment: str) -> dict[str, Any]:
-    """Add a comment to a work package. (required: id, comment)"""
+    """Add a comment to a work package.
+
+    Args:
+        id (required): ID of the resource.
+        comment (required): Comment text.
+    """
     return get_client().add_work_package_comment(id, comment)
 
 
 @mcp.tool()
 def get_work_package_relations(id: int) -> dict[str, Any]:
-    """List relations for a work package. (required: id)"""
+    """List relations for a work package.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_work_package_relations(id)
 
 
@@ -451,7 +523,13 @@ def create_work_package_relation(
     target_id: int,
     relation_type: str = "relates",
 ) -> dict[str, Any]:
-    """Create a relation from a work package to another. (required: id, target_id, relation_type)"""
+    """Create a relation from a work package to another.
+
+    Args:
+        id (required): ID of the resource.
+        target_id (required): ID of the target work package for the relation.
+        relation_type (optional): Type of the relation.
+    """
     return get_client().create_work_package_relation(
         id,
         {"_links": {"to": {"href": f"/api/v3/work_packages/{target_id}"}}, "type": relation_type},
@@ -460,19 +538,33 @@ def create_work_package_relation(
 
 @mcp.tool()
 def get_work_package_watchers(id: int) -> dict[str, Any]:
-    """List watchers of a work package. (required: id)"""
+    """List watchers of a work package.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_work_package_watchers(id)
 
 
 @mcp.tool()
 def add_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
-    """Add a watcher to a work package. (required: id, user_id)"""
+    """Add a watcher to a work package.
+
+    Args:
+        id (required): ID of the resource.
+        user_id (required): ID of the user.
+    """
     return get_client().add_work_package_watcher(id, user_id)
 
 
 @mcp.tool()
 def remove_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
-    """Remove a watcher from a work package. (required: id, user_id)"""
+    """Remove a watcher from a work package.
+
+    Args:
+        id (required): ID of the resource.
+        user_id (required): ID of the user.
+    """
     return get_client().remove_work_package_watcher(id, user_id)
 
 
@@ -482,7 +574,13 @@ def list_work_package_attachments(
     page_size: int = 20,
     offset: int = 1,
 ) -> dict[str, Any]:
-    """List attachment metadata for a work package. (required: id)"""
+    """List attachment metadata for a work package.
+
+    Args:
+        id (required): ID of the resource.
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+    """
     return get_client().list_work_package_attachments(id, page_size, offset)
 
 
@@ -494,7 +592,13 @@ def list_projects(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List projects (paginated). (required: none)"""
+    """List projects (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_projects(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -511,7 +615,18 @@ def create_project(
     parent_id: int | None = None,
     status_explanation: str = "",
 ) -> dict[str, Any]:
-    """Create a project. (required: name, identifier)"""
+    """Create a project.
+
+    Args:
+        name (required): Name.
+        identifier (required): Unique URL-safe identifier.
+        description (optional): Description text in markdown format.
+        public (optional): Public visibility flag.
+        active (optional): Active flag.
+        status_id (optional): ID of the status.
+        parent_id (optional): ID of the parent work package.
+        status_explanation (optional): Explanation of the project status.
+    """
     links: dict[str, Any] = {}
     if parent_id is not None:
         links["parent"] = {"href": f"/api/v3/projects/{parent_id}"}
@@ -533,7 +648,11 @@ def create_project(
 
 @mcp.tool()
 def get_project_by_id(id: int) -> dict[str, Any]:
-    """Get a single project by ID. (required: id)"""
+    """Get a single project by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_project_by_id(id)
 
 
@@ -549,7 +668,19 @@ def update_project(
     status_explanation: str | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a project. (required: id)"""
+    """Update a project.
+
+    Args:
+        id (required): ID of the resource.
+        name (optional): Name.
+        description (optional): Description text in markdown format.
+        public (optional): Public visibility flag.
+        active (optional): Active flag.
+        status_id (optional): ID of the status.
+        parent_id (optional): ID of the parent work package.
+        status_explanation (optional): Explanation of the project status.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
@@ -572,7 +703,11 @@ def update_project(
 
 @mcp.tool()
 def delete_project(id: int) -> dict[str, Any]:
-    """Delete a project. (required: id)"""
+    """Delete a project.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_project(id)
 
 
@@ -582,7 +717,13 @@ def copy_project(
     name: str | None = None,
     identifier: str | None = None,
 ) -> dict[str, Any]:
-    """Copy a project. (required: id)"""
+    """Copy a project.
+
+    Args:
+        id (required): ID of the resource.
+        name (optional): Name.
+        identifier (optional): Unique URL-safe identifier.
+    """
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
@@ -599,7 +740,13 @@ def list_versions(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List versions (paginated). (required: none)"""
+    """List versions (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_versions(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -615,7 +762,17 @@ def create_version(
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> dict[str, Any]:
-    """Create a version. (required: name, project_id)"""
+    """Create a version.
+
+    Args:
+        name (required): Name.
+        project_id (required): ID of the project.
+        description (optional): Description text in markdown format.
+        status (optional): Status value.
+        sharing (optional): Sharing mode.
+        start_date (optional): Start date in YYYY-MM-DD format.
+        end_date (optional): End date in YYYY-MM-DD format.
+    """
     payload: dict[str, Any] = {
         "name": name,
         "_links": {"definingProject": {"href": f"/api/v3/projects/{project_id}"}},
@@ -633,7 +790,11 @@ def create_version(
 
 @mcp.tool()
 def get_version_by_id(id: int) -> dict[str, Any]:
-    """Get a single version by ID. (required: id)"""
+    """Get a single version by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_version_by_id(id)
 
 
@@ -648,7 +809,18 @@ def update_version(
     end_date: str | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a version. (required: id)"""
+    """Update a version.
+
+    Args:
+        id (required): ID of the resource.
+        name (optional): Name.
+        description (optional): Description text in markdown format.
+        status (optional): Status value.
+        sharing (optional): Sharing mode.
+        start_date (optional): Start date in YYYY-MM-DD format.
+        end_date (optional): End date in YYYY-MM-DD format.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
@@ -669,7 +841,11 @@ def update_version(
 
 @mcp.tool()
 def delete_version(id: int) -> dict[str, Any]:
-    """Delete a version. (required: id)"""
+    """Delete a version.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_version(id)
 
 
@@ -682,7 +858,14 @@ def list_memberships(
     project_id: int | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List memberships (paginated). (required: none)"""
+    """List memberships (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        project_id (optional): ID of the project.
+        include_all_fields (optional): Include all fields in response.
+    """
     filters = None
     if project_id is not None:
         import json as _json
@@ -699,14 +882,24 @@ def create_membership(
     principal_id: int,
     role_ids: list[int],
 ) -> dict[str, Any]:
-    """Create a membership. (required: project_id, principal_id, role_ids)"""
+    """Create a membership.
+
+    Args:
+        project_id (required): ID of the project.
+        principal_id (required): ID of the user or group.
+        role_ids (required): List of role IDs.
+    """
     data = MembershipCreate(project_id=project_id, principal_id=principal_id, role_ids=role_ids)
     return get_client().create_membership(_build_membership_payload(data))
 
 
 @mcp.tool()
 def get_membership_by_id(id: int) -> dict[str, Any]:
-    """Get a single membership by ID. (required: id)"""
+    """Get a single membership by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_membership_by_id(id)
 
 
@@ -718,7 +911,15 @@ def update_membership(
     role_ids: list[int] | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a membership. (required: id)"""
+    """Update a membership.
+
+    Args:
+        id (required): ID of the resource.
+        project_id (optional): ID of the project.
+        principal_id (optional): ID of the user or group.
+        role_ids (optional): List of role IDs.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     links: dict[str, Any] = {}
     if project_id is not None:
         links["project"] = {"href": f"/api/v3/projects/{project_id}"}
@@ -734,7 +935,11 @@ def update_membership(
 
 @mcp.tool()
 def delete_membership(id: int) -> dict[str, Any]:
-    """Delete a membership. (required: id)"""
+    """Delete a membership.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_membership(id)
 
 
@@ -747,7 +952,14 @@ def list_users(
     filters: FilterExpression | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List users (paginated). (required: none — filters specifies filter conditions with field, operator, and values)"""
+    """List users (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        filters (optional): Filters.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_users(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields
@@ -756,7 +968,11 @@ def list_users(
 
 @mcp.tool()
 def get_user_by_id(id: int) -> dict[str, Any]:
-    """Get a single user by ID. (required: id)"""
+    """Get a single user by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_user_by_id(id)
 
 
@@ -770,7 +986,17 @@ def create_user(
     language: str = "en",
     admin: bool = False,
 ) -> dict[str, Any]:
-    """Create a user. (required: login, first_name, last_name, email, password)"""
+    """Create a user.
+
+    Args:
+        login (required): Login username.
+        first_name (required): First name.
+        last_name (required): Last name.
+        email (required): Email address.
+        password (required): Password.
+        language (optional): Language code.
+        admin (optional): Admin flag.
+    """
     return get_client().create_user({
         "login": login, "firstName": first_name, "lastName": last_name,
         "email": email, "password": password, "language": language, "admin": admin,
@@ -786,7 +1012,16 @@ def update_user(
     language: str | None = None,
     admin: bool | None = None,
 ) -> dict[str, Any]:
-    """Update a user. (required: id)"""
+    """Update a user.
+
+    Args:
+        id (required): ID of the resource.
+        first_name (optional): First name.
+        last_name (optional): Last name.
+        email (optional): Email address.
+        language (optional): Language code.
+        admin (optional): Admin flag.
+    """
     payload: dict[str, Any] = {}
     if first_name is not None:
         payload["firstName"] = first_name
@@ -803,7 +1038,11 @@ def update_user(
 
 @mcp.tool()
 def delete_user(id: int) -> dict[str, Any]:
-    """Delete a user. (required: id)"""
+    """Delete a user.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_user(id)
 
 
@@ -815,7 +1054,13 @@ def list_groups(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List groups (paginated). (required: none)"""
+    """List groups (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_groups(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -823,7 +1068,11 @@ def list_groups(
 
 @mcp.tool()
 def get_group_by_id(id: int) -> dict[str, Any]:
-    """Get a single group by ID. (required: id)"""
+    """Get a single group by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_group_by_id(id)
 
 
@@ -832,7 +1081,12 @@ def create_group(
     name: str,
     member_ids: list[int] | None = None,
 ) -> dict[str, Any]:
-    """Create a group. (required: name)"""
+    """Create a group.
+
+    Args:
+        name (required): Name.
+        member_ids (optional): List of member user IDs.
+    """
     payload: dict[str, Any] = {"name": name}
     if member_ids:
         payload["_links"] = {
@@ -847,7 +1101,13 @@ def update_group(
     name: str | None = None,
     member_ids: list[int] | None = None,
 ) -> dict[str, Any]:
-    """Update a group. (required: id)"""
+    """Update a group.
+
+    Args:
+        id (required): ID of the resource.
+        name (optional): Name.
+        member_ids (optional): List of member user IDs.
+    """
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
@@ -860,7 +1120,11 @@ def update_group(
 
 @mcp.tool()
 def delete_group(id: int) -> dict[str, Any]:
-    """Delete a group. (required: id)"""
+    """Delete a group.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_group(id)
 
 
@@ -872,7 +1136,13 @@ def list_statuses(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List statuses (paginated). (required: none)"""
+    """List statuses (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_statuses(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -880,7 +1150,11 @@ def list_statuses(
 
 @mcp.tool()
 def get_status_by_id(id: int) -> dict[str, Any]:
-    """Get a single status by ID. (required: id)"""
+    """Get a single status by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_status_by_id(id)
 
 
@@ -892,7 +1166,13 @@ def list_types(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List types (paginated). (required: none)"""
+    """List types (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_types(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -900,7 +1180,11 @@ def list_types(
 
 @mcp.tool()
 def get_type_by_id(id: int) -> dict[str, Any]:
-    """Get a single type by ID. (required: id)"""
+    """Get a single type by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_type_by_id(id)
 
 
@@ -912,7 +1196,13 @@ def list_priorities(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List priorities (paginated). (required: none)"""
+    """List priorities (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_priorities(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -920,7 +1210,11 @@ def list_priorities(
 
 @mcp.tool()
 def get_priority_by_id(id: int) -> dict[str, Any]:
-    """Get a single priority by ID. (required: id)"""
+    """Get a single priority by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_priority_by_id(id)
 
 
@@ -932,7 +1226,13 @@ def list_roles(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List roles (paginated). (required: none)"""
+    """List roles (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_roles(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -940,7 +1240,11 @@ def list_roles(
 
 @mcp.tool()
 def get_role_by_id(id: int) -> dict[str, Any]:
-    """Get a single role by ID. (required: id)"""
+    """Get a single role by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_role_by_id(id)
 
 
@@ -953,7 +1257,14 @@ def list_principals(
     filters: FilterExpression | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List principals (users and groups, paginated). (required: none — filters specifies filter conditions with field, operator, and values)"""
+    """List principals (users and groups, paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        filters (optional): Filters.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_principals(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields
@@ -962,7 +1273,11 @@ def list_principals(
 
 @mcp.tool()
 def get_principal_by_id(id: int) -> dict[str, Any]:
-    """Get a single principal by ID. (required: id)"""
+    """Get a single principal by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_principal_by_id(id)
 
 
@@ -970,7 +1285,11 @@ def get_principal_by_id(id: int) -> dict[str, Any]:
 
 @mcp.tool()
 def get_category_by_id(id: int) -> dict[str, Any]:
-    """Get a single category by ID. (required: id)"""
+    """Get a single category by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_category_by_id(id)
 
 
@@ -980,7 +1299,13 @@ def list_project_categories(
     page_size: int = 20,
     offset: int = 1,
 ) -> dict[str, Any]:
-    """List categories for a project. (required: project_id)"""
+    """List categories for a project.
+
+    Args:
+        project_id (required): ID of the project.
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+    """
     return get_client().list_project_categories(project_id, page_size, offset)
 
 
@@ -988,7 +1313,11 @@ def list_project_categories(
 
 @mcp.tool()
 def get_wiki_page_by_id(id: int) -> dict[str, Any]:
-    """Get a single wiki page by ID. (required: id)"""
+    """Get a single wiki page by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_wiki_page_by_id(id)
 
 
@@ -996,7 +1325,11 @@ def get_wiki_page_by_id(id: int) -> dict[str, Any]:
 
 @mcp.tool()
 def get_budget_by_id(id: int) -> dict[str, Any]:
-    """Get a single budget by ID. (required: id)"""
+    """Get a single budget by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_budget_by_id(id)
 
 
@@ -1006,13 +1339,23 @@ def list_project_budgets(
     page_size: int = 20,
     offset: int = 1,
 ) -> dict[str, Any]:
-    """List budgets for a project. (required: project_id)"""
+    """List budgets for a project.
+
+    Args:
+        project_id (required): ID of the project.
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+    """
     return get_client().list_project_budgets(project_id, page_size, offset)
 
 
 @mcp.tool()
 def get_cost_type_by_id(id: int) -> dict[str, Any]:
-    """Get a single cost type by ID. (required: id)"""
+    """Get a single cost type by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_cost_type_by_id(id)
 
 
@@ -1025,7 +1368,14 @@ def list_notifications(
     filters: FilterExpression | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List notifications (paginated). (required: none — filters specifies filter conditions with field, operator, and values)"""
+    """List notifications (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        filters (optional): Filters.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_notifications(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields
@@ -1034,7 +1384,11 @@ def list_notifications(
 
 @mcp.tool()
 def get_notification_by_id(id: int) -> dict[str, Any]:
-    """Get a single notification by ID. (required: id)"""
+    """Get a single notification by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_notification_by_id(id)
 
 
@@ -1049,7 +1403,16 @@ def list_days(
     date_to: str | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List calendar days with working/non-working status. (required: none)"""
+    """List calendar days with working/non-working status.
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        working (optional): Filter by working day status.
+        date_from (optional): Start date for range filter in YYYY-MM-DD format.
+        date_to (optional): End date for range filter in YYYY-MM-DD format.
+        include_all_fields (optional): Include all fields in response.
+    """
     import json as _json
     filters: list[dict[str, Any]] = []
     if working is not None:
@@ -1071,7 +1434,15 @@ def list_non_working_days(
     date_to: str | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List non-working days (holidays). (required: none)"""
+    """List non-working days (holidays).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        date_from (optional): Start date for range filter in YYYY-MM-DD format.
+        date_to (optional): End date for range filter in YYYY-MM-DD format.
+        include_all_fields (optional): Include all fields in response.
+    """
     import json as _json
     filters: list[dict[str, Any]] = []
     if date_from is not None and date_to is not None:
@@ -1085,7 +1456,11 @@ def list_non_working_days(
 
 @mcp.tool()
 def get_non_working_day_by_date(date: str) -> dict[str, Any]:
-    """Get a single non-working day by date. (required: date, ISO 8601 format YYYY-MM-DD)"""
+    """Get a single non-working day by date.
+
+    Args:
+        date (required): Date in ISO 8601 format YYYY-MM-DD in YYYY-MM-DD format.
+    """
     return get_client().get_non_working_day_by_date(date)
 
 
@@ -1095,7 +1470,13 @@ def list_week_days(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List configured week days (Mon-Sun with working flag). (required: none)"""
+    """List configured week days (Mon-Sun with working flag).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_week_days(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -1103,7 +1484,11 @@ def list_week_days(
 
 @mcp.tool()
 def get_week_day_by_number(day: int) -> dict[str, Any]:
-    """Get a single week day by number (1=Monday, 7=Sunday). (required: day, 1-7)"""
+    """Get a single week day by number (1=Monday, 7=Sunday).
+
+    Args:
+        day (required): Day.
+    """
     return get_client().get_week_day_by_number(day)
 
 
@@ -1111,7 +1496,11 @@ def get_week_day_by_number(day: int) -> dict[str, Any]:
 
 @mcp.tool()
 def get_attachment_by_id(id: int) -> dict[str, Any]:
-    """Get attachment metadata by ID. (required: id)"""
+    """Get attachment metadata by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_attachment_by_id(id)
 
 
@@ -1124,7 +1513,14 @@ def list_documents(
     project_id: int | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List documents (paginated). (required: none)"""
+    """List documents (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        project_id (optional): ID of the project.
+        include_all_fields (optional): Include all fields in response.
+    """
     import json as _json
     filters = None
     if project_id is not None:
@@ -1137,7 +1533,11 @@ def list_documents(
 
 @mcp.tool()
 def get_document_by_id(id: int) -> dict[str, Any]:
-    """Get a single document by ID. (required: id)"""
+    """Get a single document by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_document_by_id(id)
 
 
@@ -1148,7 +1548,14 @@ def update_document(
     description: str | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a document. (required: id)"""
+    """Update a document.
+
+    Args:
+        id (required): ID of the resource.
+        title (optional): Title.
+        description (optional): Description text in markdown format.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1163,13 +1570,22 @@ def update_document(
 
 @mcp.tool()
 def list_emoji_reactions(activity_id: int) -> dict[str, Any]:
-    """List emoji reactions on an activity. (required: activity_id)"""
+    """List emoji reactions on an activity.
+
+    Args:
+        activity_id (required): ID of the activity.
+    """
     return get_client().list_emoji_reactions(activity_id)
 
 
 @mcp.tool()
 def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
-    """Toggle an emoji reaction on an activity (add or remove). (required: activity_id, reaction)"""
+    """Toggle an emoji reaction on an activity (add or remove).
+
+    Args:
+        activity_id (required): ID of the activity.
+        reaction (required): Emoji reaction string.
+    """
     return get_client().toggle_emoji_reaction(activity_id, reaction)
 
 
@@ -1186,7 +1602,13 @@ def create_reminder(
     remind_at: str,
     note: str = "",
 ) -> dict[str, Any]:
-    """Create a reminder on a work package. (required: work_package_id, remind_at - ISO 8601 datetime with explicit UTC offset)"""
+    """Create a reminder on a work package.
+
+    Args:
+        work_package_id (required): ID of the work package.
+        remind_at (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
+        note (optional): Note text.
+    """
     payload: dict[str, Any] = {"remindAt": remind_at}
     if note:
         payload["note"] = note
@@ -1199,7 +1621,13 @@ def list_reminders(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List reminders (paginated). (required: none)"""
+    """List reminders (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_reminders(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -1212,7 +1640,14 @@ def update_reminder(
     minutes_before: int | None = None,
     note: str | None = None,
 ) -> dict[str, Any]:
-    """Update a reminder. (required: id)"""
+    """Update a reminder.
+
+    Args:
+        id (required): ID of the resource.
+        work_package_id (optional): ID of the work package.
+        minutes_before (optional): Minutes before to trigger reminder.
+        note (optional): Note text.
+    """
     payload: dict[str, Any] = {}
     if work_package_id is not None:
         payload["_links"] = {"workPackage": {"href": f"/api/v3/work_packages/{work_package_id}"}}
@@ -1225,7 +1660,11 @@ def update_reminder(
 
 @mcp.tool()
 def delete_reminder(id: int) -> dict[str, Any]:
-    """Delete a reminder. (required: id)"""
+    """Delete a reminder.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_reminder(id)
 
 
@@ -1238,7 +1677,14 @@ def list_meetings(
     project_id: int | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List meetings (paginated). (required: none)"""
+    """List meetings (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        project_id (optional): ID of the project.
+        include_all_fields (optional): Include all fields in response.
+    """
     import json as _json
     filters = None
     if project_id is not None:
@@ -1258,7 +1704,16 @@ def create_meeting(
     location: str = "",
     notify: bool = True,
 ) -> dict[str, Any]:
-    """Create a meeting. (required: title, project_id, start_time, end_time)"""
+    """Create a meeting.
+
+    Args:
+        title (required): Title.
+        project_id (required): ID of the project.
+        start_time (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
+        end_time (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
+        location (optional): Location or video call link.
+        notify (optional): Notify participants.
+    """
     return get_client().create_meeting({
         "title": title,
         "_links": {"project": {"href": f"/api/v3/projects/{project_id}"}},
@@ -1271,7 +1726,11 @@ def create_meeting(
 
 @mcp.tool()
 def get_meeting_by_id(id: int) -> dict[str, Any]:
-    """Get a single meeting by ID. (required: id)"""
+    """Get a single meeting by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_meeting_by_id(id)
 
 
@@ -1285,7 +1744,17 @@ def update_meeting(
     notify: bool | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a meeting. (required: id)"""
+    """Update a meeting.
+
+    Args:
+        id (required): ID of the resource.
+        title (optional): Title.
+        start_time (optional): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
+        end_time (optional): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
+        location (optional): Location or video call link.
+        notify (optional): Notify participants.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1304,19 +1773,31 @@ def update_meeting(
 
 @mcp.tool()
 def delete_meeting(id: int) -> dict[str, Any]:
-    """Delete a meeting. (required: id)"""
+    """Delete a meeting.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_meeting(id)
 
 
 @mcp.tool()
 def list_meeting_agenda_items(meeting_id: int) -> dict[str, Any]:
-    """List agenda items for a meeting. (required: meeting_id)"""
+    """List agenda items for a meeting.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+    """
     return get_client().list_meeting_agenda_items(meeting_id)
 
 
 @mcp.tool()
 def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
-    """List sections for a meeting. (required: meeting_id)"""
+    """List sections for a meeting.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+    """
     return get_client().list_meeting_sections(meeting_id)
 
 
@@ -1330,7 +1811,15 @@ def create_meeting_agenda_item(
     duration_in_minutes: int | None = None,
     notes: str = "",
 ) -> dict[str, Any]:
-    """Create a meeting agenda item. (required: meeting_id, item_type)"""
+    """Create a meeting agenda item.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+        item_type (optional): Type of agenda item.
+        title (optional): Title.
+        duration_in_minutes (optional): Duration in minutes.
+        notes (optional): Notes text in markdown format.
+    """
     payload: dict[str, Any] = {
         "itemType": item_type,
     }
@@ -1345,7 +1834,12 @@ def create_meeting_agenda_item(
 
 @mcp.tool()
 def get_meeting_agenda_item_by_id(meeting_id: int, id: int) -> dict[str, Any]:
-    """Get a single meeting agenda item by ID. (required: meeting_id, id)"""
+    """Get a single meeting agenda item by ID.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+        id (required): ID of the resource.
+    """
     return get_client().get_meeting_agenda_item_by_id(meeting_id, id)
 
 
@@ -1358,7 +1852,16 @@ def update_meeting_agenda_item(
     notes: str | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a meeting agenda item. (required: meeting_id, id)"""
+    """Update a meeting agenda item.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+        id (required): ID of the resource.
+        title (optional): Title.
+        duration_in_minutes (optional): Duration in minutes.
+        notes (optional): Notes text in markdown format.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1373,7 +1876,12 @@ def update_meeting_agenda_item(
 
 @mcp.tool()
 def delete_meeting_agenda_item(meeting_id: int, id: int) -> dict[str, Any]:
-    """Delete a meeting agenda item. (required: meeting_id, id)"""
+    """Delete a meeting agenda item.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+        id (required): ID of the resource.
+    """
     return get_client().delete_meeting_agenda_item(meeting_id, id)
 
 
@@ -1385,7 +1893,13 @@ def create_meeting_section(
     title: str,
     position: int = 0,
 ) -> dict[str, Any]:
-    """Create a meeting section. (required: meeting_id, title, position)"""
+    """Create a meeting section.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+        title (required): Title.
+        position (optional): Position index.
+    """
     return get_client().create_meeting_section(meeting_id, {
         "title": title,
         "position": position,
@@ -1394,7 +1908,12 @@ def create_meeting_section(
 
 @mcp.tool()
 def get_meeting_section_by_id(meeting_id: int, id: int) -> dict[str, Any]:
-    """Get a single meeting section by ID. (required: meeting_id, id)"""
+    """Get a single meeting section by ID.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+        id (required): ID of the resource.
+    """
     return get_client().get_meeting_section_by_id(meeting_id, id)
 
 
@@ -1406,7 +1925,15 @@ def update_meeting_section(
     position: int | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a meeting section. (required: meeting_id, id)"""
+    """Update a meeting section.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+        id (required): ID of the resource.
+        title (optional): Title.
+        position (optional): Position index.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1419,7 +1946,12 @@ def update_meeting_section(
 
 @mcp.tool()
 def delete_meeting_section(meeting_id: int, id: int) -> dict[str, Any]:
-    """Delete a meeting section. (required: meeting_id, id)"""
+    """Delete a meeting section.
+
+    Args:
+        meeting_id (required): ID of the meeting.
+        id (required): ID of the resource.
+    """
     return get_client().delete_meeting_section(meeting_id, id)
 
 
@@ -1432,7 +1964,14 @@ def list_recurring_meetings(
     project_id: int | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List recurring meetings (paginated). (required: none)"""
+    """List recurring meetings (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        project_id (optional): ID of the project.
+        include_all_fields (optional): Include all fields in response.
+    """
     import json as _json
     filters = None
     if project_id is not None:
@@ -1455,7 +1994,19 @@ def create_recurring_meeting(
     count_limit: int | None = None,
     end_date: str | None = None,
 ) -> dict[str, Any]:
-    """Create a recurring meeting. (required: project_id, title, frequency, start_time, end_time — start_time and end_time use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00))"""
+    """Create a recurring meeting.
+
+    Args:
+        project_id (required): ID of the project.
+        title (required): Title.
+        frequency (required): Frequency of recurrence.
+        start_time (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
+        end_time (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
+        days (optional): List of days.
+        interval_value (optional): Interval count.
+        count_limit (optional): Maximum number of occurrences.
+        end_date (optional): End date in YYYY-MM-DD format.
+    """
     payload: dict[str, Any] = {
         "title": title,
         "frequency": frequency,
@@ -1475,7 +2026,11 @@ def create_recurring_meeting(
 
 @mcp.tool()
 def get_recurring_meeting_by_id(id: int) -> dict[str, Any]:
-    """Get a single recurring meeting by ID. (required: id)"""
+    """Get a single recurring meeting by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_recurring_meeting_by_id(id)
 
 
@@ -1489,7 +2044,17 @@ def update_recurring_meeting(
     interval_value: int | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a recurring meeting. (required: id — start_time and end_time use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00))"""
+    """Update a recurring meeting.
+
+    Args:
+        id (required): ID of the resource.
+        title (optional): Title.
+        frequency (optional): Frequency of recurrence.
+        start_time (optional): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
+        end_time (optional): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
+        interval_value (optional): Interval count.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1508,7 +2073,11 @@ def update_recurring_meeting(
 
 @mcp.tool()
 def delete_recurring_meeting(id: int) -> dict[str, Any]:
-    """Delete a recurring meeting. (required: id)"""
+    """Delete a recurring meeting.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_recurring_meeting(id)
 
 
@@ -1522,7 +2091,15 @@ def list_time_entries(
     work_package_id: int | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List time entries (paginated). (required: none)"""
+    """List time entries (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        project_id (optional): ID of the project.
+        work_package_id (optional): ID of the work package.
+        include_all_fields (optional): Include all fields in response.
+    """
     import json as _json
     filters: list[dict[str, Any]] = []
     if project_id is not None:
@@ -1545,7 +2122,16 @@ def create_time_entry(
     spent_on: str | None = None,
     comment: str = "",
 ) -> dict[str, Any]:
-    """Create a time entry. (required: project_id, hours)"""
+    """Create a time entry.
+
+    Args:
+        project_id (required): ID of the project.
+        hours (required): Time spent in ISO 8601 duration format (e.g. PT2H30M).
+        work_package_id (optional): ID of the work package.
+        activity_id (optional): ID of the activity.
+        spent_on (optional): Date the work was performed in YYYY-MM-DD format.
+        comment (optional): Comment text.
+    """
     links: dict[str, Any] = {"project": {"href": f"/api/v3/projects/{project_id}"}}
     if work_package_id is not None:
         links["entity"] = {"href": f"/api/v3/work_packages/{work_package_id}"}
@@ -1564,7 +2150,11 @@ def create_time_entry(
 
 @mcp.tool()
 def get_time_entry_by_id(id: int) -> dict[str, Any]:
-    """Get a single time entry by ID. (required: id)"""
+    """Get a single time entry by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_time_entry_by_id(id)
 
 
@@ -1576,7 +2166,15 @@ def update_time_entry(
     comment: str | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a time entry. (required: id)"""
+    """Update a time entry.
+
+    Args:
+        id (required): ID of the resource.
+        hours (optional): Time spent in ISO 8601 duration format (e.g. PT2H30M).
+        spent_on (optional): Date the work was performed in YYYY-MM-DD format.
+        comment (optional): Comment text.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if hours is not None:
         payload["hours"] = hours
@@ -1591,7 +2189,11 @@ def update_time_entry(
 
 @mcp.tool()
 def delete_time_entry(id: int) -> dict[str, Any]:
-    """Delete a time entry. (required: id)"""
+    """Delete a time entry.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_time_entry(id)
 
 
@@ -1604,7 +2206,14 @@ def list_news(
     project_id: int | None = None,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List news items (paginated). (required: none)"""
+    """List news items (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        project_id (optional): ID of the project.
+        include_all_fields (optional): Include all fields in response.
+    """
     import json as _json
     filters = None
     if project_id is not None:
@@ -1622,7 +2231,14 @@ def create_news(
     summary: str = "",
     description: str = "",
 ) -> dict[str, Any]:
-    """Create a news item. (required: project_id, title)"""
+    """Create a news item.
+
+    Args:
+        project_id (required): ID of the project.
+        title (required): Title.
+        summary (optional): Short summary.
+        description (optional): Description text in markdown format.
+    """
     payload: dict[str, Any] = {
         "title": title,
         "_links": {"project": {"href": f"/api/v3/projects/{project_id}"}},
@@ -1636,7 +2252,11 @@ def create_news(
 
 @mcp.tool()
 def get_news_by_id(id: int) -> dict[str, Any]:
-    """Get a single news item by ID. (required: id)"""
+    """Get a single news item by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_news_by_id(id)
 
 
@@ -1648,7 +2268,15 @@ def update_news(
     description: str | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a news item. (required: id)"""
+    """Update a news item.
+
+    Args:
+        id (required): ID of the resource.
+        title (optional): Title.
+        summary (optional): Short summary.
+        description (optional): Description text in markdown format.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1663,7 +2291,11 @@ def update_news(
 
 @mcp.tool()
 def delete_news(id: int) -> dict[str, Any]:
-    """Delete a news item. (required: id)"""
+    """Delete a news item.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_news(id)
 
 
@@ -1675,7 +2307,13 @@ def list_grids(
     offset: int = 1,
     include_all_fields: bool = False,
 ) -> dict[str, Any]:
-    """List grids (paginated). (required: none)"""
+    """List grids (paginated).
+
+    Args:
+        page_size (optional): Number of items per page.
+        offset (optional): Page offset for pagination.
+        include_all_fields (optional): Include all fields in response.
+    """
     return get_client().list_grids(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields
     )
@@ -1688,7 +2326,14 @@ def create_grid(
     column_count: int = 2,
     scope_href: str | None = None,
 ) -> dict[str, Any]:
-    """Create a grid. (required: page). Optional: scope_href like '/projects/demo-project/boards'"""
+    """Create a grid.
+
+    Args:
+        page (required): Page identifier.
+        row_count (optional): Number of rows.
+        column_count (optional): Column Count.
+        scope_href (optional): Scope URL for the grid.
+    """
     payload: dict[str, Any] = {
         "name": page,
         "rowCount": row_count,
@@ -1703,7 +2348,11 @@ def create_grid(
 
 @mcp.tool()
 def get_grid_by_id(id: int) -> dict[str, Any]:
-    """Get a single grid by ID. (required: id)"""
+    """Get a single grid by ID.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().get_grid_by_id(id)
 
 
@@ -1715,7 +2364,15 @@ def update_grid(
     widgets: list[GridWidget] | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a grid. (required: id — widgets specifies grid widget configuration including position and identifier)"""
+    """Update a grid.
+
+    Args:
+        id (required): ID of the resource.
+        page (optional): Page identifier.
+        row_count (optional): Number of rows.
+        widgets (optional): List of grid widget configurations.
+        lock_version (optional): Lock version for optimistic locking.
+    """
     payload: dict[str, Any] = {}
     if page is not None:
         payload["page"] = page
@@ -1730,7 +2387,11 @@ def update_grid(
 
 @mcp.tool()
 def delete_grid(id: int) -> dict[str, Any]:
-    """Delete a grid. (required: id)"""
+    """Delete a grid.
+
+    Args:
+        id (required): ID of the resource.
+    """
     return get_client().delete_grid(id)
 
 
@@ -1738,7 +2399,11 @@ def delete_grid(id: int) -> dict[str, Any]:
 
 @mcp.tool()
 def get_job_status(job_id: str) -> dict[str, Any]:
-    """Get the status of an async job. (required: job_id)"""
+    """Get the status of an async job.
+
+    Args:
+        job_id (required): ID of the async job.
+    """
     return get_client().get_job_status(job_id)
 
 
@@ -1746,7 +2411,10 @@ def get_job_status(job_id: str) -> dict[str, Any]:
 
 @mcp.tool()
 def health_check() -> dict[str, str]:
-    """Basic server health check. (required: none)"""
+    """Basic server health check.
+
+    Args:
+    """
     return {"status": "ok"}
 
 
