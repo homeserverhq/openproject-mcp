@@ -353,15 +353,6 @@ class OpenProjectClient:
 
     # ─── Cost Types ───────────────────────────────────────────────────
 
-    def list_cost_types(
-        self,
-        page_size: int = 20,
-        offset: int = 1,
-        include_all_fields: bool = False,
-    ) -> dict[str, Any]:
-        params = {"pageSize": page_size, "offset": offset}
-        return self._get("/cost_types", params=params)
-
     def get_cost_type_by_id(self, id: int) -> dict[str, Any]:
         return self._get(f"/cost_types/{id}")
 
@@ -461,24 +452,10 @@ class OpenProjectClient:
             json={"reaction": reaction},
         )
 
-    # ─── Wiki Page Links ──────────────────────────────────────────────
-
-    def create_wiki_page_link(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/wiki_page_links", json=payload)
-
-    def list_wiki_page_links(
-        self,
-        page_size: int = 20,
-        offset: int = 1,
-        include_all_fields: bool = False,
-    ) -> dict[str, Any]:
-        params = {"pageSize": page_size, "offset": offset}
-        return self._get("/wiki_page_links", params=params)
-
-    def delete_wiki_page_link(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/wiki_page_links/{id}")
-
     # ─── Reminders ────────────────────────────────────────────────────
+
+    def create_reminder(self, work_package_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._post(f"/work_packages/{work_package_id}/reminders", json=payload)
 
     def list_reminders(
         self,
@@ -529,79 +506,51 @@ class OpenProjectClient:
 
     # ─── Meeting Agenda Items ─────────────────────────────────────────
 
-    def create_meeting_agenda_item(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/meeting_agenda_items", json=payload)
+    def create_meeting_agenda_item(self, meeting_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._post(f"/meetings/{meeting_id}/agenda_items", json=payload)
 
-    def get_meeting_agenda_item_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/meeting_agenda_items/{id}")
+    def get_meeting_agenda_item_by_id(self, meeting_id: int, id: int) -> dict[str, Any]:
+        return self._get(f"/meetings/{meeting_id}/agenda_items/{id}")
 
     def update_meeting_agenda_item(
-        self, id: int, payload: dict[str, Any]
+        self, meeting_id: int, id: int, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        return self._patch(f"/meeting_agenda_items/{id}", json=payload)
+        return self._patch(f"/meetings/{meeting_id}/agenda_items/{id}", json=payload)
 
-    def delete_meeting_agenda_item(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/meeting_agenda_items/{id}")
+    def delete_meeting_agenda_item(self, meeting_id: int, id: int) -> dict[str, Any]:
+        return self._delete(f"/meetings/{meeting_id}/agenda_items/{id}")
 
     # ─── Meeting Outcomes ─────────────────────────────────────────────
 
-    def create_meeting_outcome(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/meeting_outcomes", json=payload)
+    def create_meeting_outcome(self, meeting_id: int, agenda_item_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._post(f"/meetings/{meeting_id}/agenda_items/{agenda_item_id}/outcomes", json=payload)
 
-    def get_meeting_outcome_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/meeting_outcomes/{id}")
+    def get_meeting_outcome_by_id(self, meeting_id: int, id: int) -> dict[str, Any]:
+        return self._get(f"/meetings/{meeting_id}/outcomes/{id}")
 
     def update_meeting_outcome(
-        self, id: int, payload: dict[str, Any]
+        self, meeting_id: int, id: int, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        return self._patch(f"/meeting_outcomes/{id}", json=payload)
+        return self._patch(f"/meetings/{meeting_id}/outcomes/{id}", json=payload)
 
-    def delete_meeting_outcome(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/meeting_outcomes/{id}")
+    def delete_meeting_outcome(self, meeting_id: int, id: int) -> dict[str, Any]:
+        return self._delete(f"/meetings/{meeting_id}/outcomes/{id}")
 
     # ─── Meeting Sections ─────────────────────────────────────────────
 
-    def create_meeting_section(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/meeting_sections", json=payload)
+    def create_meeting_section(self, meeting_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._post(f"/meetings/{meeting_id}/sections", json=payload)
 
-    def get_meeting_section_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/meeting_sections/{id}")
+    def get_meeting_section_by_id(self, meeting_id: int, id: int) -> dict[str, Any]:
+        return self._get(f"/meetings/{meeting_id}/sections/{id}")
 
     def update_meeting_section(
-        self, id: int, payload: dict[str, Any]
+        self, meeting_id: int, id: int, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        return self._patch(f"/meeting_sections/{id}", json=payload)
+        return self._patch(f"/meetings/{meeting_id}/sections/{id}", json=payload)
 
-    def delete_meeting_section(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/meeting_sections/{id}")
-
-    # ─── Recurring Meetings ───────────────────────────────────────────
-
-    def list_recurring_meetings(
-        self,
-        page_size: int = 20,
-        offset: int = 1,
-        filters: str | None = None,
-        include_all_fields: bool = False,
-    ) -> dict[str, Any]:
-        params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
-        if filters:
-            params["filters"] = filters
-        return self._get("/recurring_meetings", params=params)
-
-    def create_recurring_meeting(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._post("/recurring_meetings", json=payload)
-
-    def get_recurring_meeting_by_id(self, id: int) -> dict[str, Any]:
-        return self._get(f"/recurring_meetings/{id}")
-
-    def update_recurring_meeting(
-        self, id: int, payload: dict[str, Any]
-    ) -> dict[str, Any]:
-        return self._patch(f"/recurring_meetings/{id}", json=payload)
-
-    def delete_recurring_meeting(self, id: int) -> dict[str, Any]:
-        return self._delete(f"/recurring_meetings/{id}")
+    def delete_meeting_section(self, meeting_id: int, id: int) -> dict[str, Any]:
+        return self._delete(f"/meetings/{meeting_id}/sections/{id}")
 
     # ─── Time Entries ─────────────────────────────────────────────────
 
@@ -654,6 +603,34 @@ class OpenProjectClient:
 
     def delete_news(self, id: int) -> dict[str, Any]:
         return self._delete(f"/news/{id}")
+
+    # ─── Recurring Meetings ───────────────────────────────────────────
+
+    def list_recurring_meetings(
+        self,
+        page_size: int = 20,
+        offset: int = 1,
+        filters: str | None = None,
+        include_all_fields: bool = False,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"pageSize": page_size, "offset": offset}
+        if filters:
+            params["filters"] = filters
+        return self._get("/recurring_meetings", params=params)
+
+    def create_recurring_meeting(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._post("/recurring_meetings", json=payload)
+
+    def get_recurring_meeting_by_id(self, id: int) -> dict[str, Any]:
+        return self._get(f"/recurring_meetings/{id}")
+
+    def update_recurring_meeting(
+        self, id: int, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self._patch(f"/recurring_meetings/{id}", json=payload)
+
+    def delete_recurring_meeting(self, id: int) -> dict[str, Any]:
+        return self._delete(f"/recurring_meetings/{id}")
 
     # ─── Grids ────────────────────────────────────────────────────────
 

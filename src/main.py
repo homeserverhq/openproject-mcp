@@ -877,20 +877,6 @@ def list_project_budgets(
     return get_client().list_project_budgets(project_id, page_size, offset)
 
 
-# ─── Cost Type Tools ──────────────────────────────────────────────────
-
-@mcp.tool()
-def list_cost_types(
-    page_size: int = 20,
-    offset: int = 1,
-    include_all_fields: bool = False,
-) -> dict[str, Any]:
-    """List cost types (paginated). (required: none)"""
-    return get_client().list_cost_types(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
-    )
-
-
 @mcp.tool()
 def get_cost_type_by_id(id: int) -> dict[str, Any]:
     """Get a single cost type by ID. (required: id)"""
@@ -1056,39 +1042,23 @@ def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
 
 # ─── Wiki Page Link Tools ─────────────────────────────────────────────
 
-@mcp.tool()
-def create_wiki_page_link(
-    work_package_id: int,
-    wiki_page_id: int,
-) -> dict[str, Any]:
-    """Create a wiki page link from a work package. (required: work_package_id, wiki_page_id)"""
-    return get_client().create_wiki_page_link({
-        "_links": {
-            "workPackage": {"href": f"/api/v3/work_packages/{work_package_id}"},
-            "wikiPage": {"href": f"/api/v3/wiki_pages/{wiki_page_id}"},
-        }
-    })
-
-
-@mcp.tool()
-def list_wiki_page_links(
-    page_size: int = 20,
-    offset: int = 1,
-    include_all_fields: bool = False,
-) -> dict[str, Any]:
-    """List wiki page links (paginated). (required: none)"""
-    return get_client().list_wiki_page_links(
-        page_size=page_size, offset=offset, include_all_fields=include_all_fields
-    )
-
-
-@mcp.tool()
-def delete_wiki_page_link(id: int) -> dict[str, Any]:
-    """Delete a wiki page link. (required: id)"""
-    return get_client().delete_wiki_page_link(id)
+# (wiki page link tools removed — no backend endpoint)
 
 
 # ─── Reminder Tools ───────────────────────────────────────────────────
+
+@mcp.tool()
+def create_reminder(
+    work_package_id: int,
+    remind_at: str,
+    note: str = "",
+) -> dict[str, Any]:
+    """Create a reminder on a work package. (required: work_package_id, remind_at - ISO 8601 datetime, e.g. '2026-07-01T10:00:00Z')"""
+    payload: dict[str, Any] = {"remindAt": remind_at}
+    if note:
+        payload["note"] = note
+    return get_client().create_reminder(work_package_id, payload)
+
 
 @mcp.tool()
 def list_reminders(
@@ -1107,7 +1077,7 @@ def update_reminder(
     id: int,
     work_package_id: int | None = None,
     minutes_before: int | None = None,
-    notes: str | None = None,
+    note: str | None = None,
 ) -> dict[str, Any]:
     """Update a reminder. (required: id)"""
     payload: dict[str, Any] = {}
@@ -1115,8 +1085,8 @@ def update_reminder(
         payload["_links"] = {"workPackage": {"href": f"/api/v3/work_packages/{work_package_id}"}}
     if minutes_before is not None:
         payload["minutesBefore"] = minutes_before
-    if notes is not None:
-        payload["notes"] = notes
+    if note is not None:
+        payload["notes"] = note
     return get_client().update_reminder(id, payload)
 
 
@@ -1159,8 +1129,8 @@ def create_meeting(
     return get_client().create_meeting({
         "title": title,
         "_links": {"project": {"href": f"/api/v3/projects/{project_id}"}},
-        "startTime": start_time,
-        "endTime": end_time,
+        "start_time": start_time,
+        "end_time": end_time,
         "location": location,
         "notify": notify,
     })
@@ -1230,7 +1200,6 @@ def create_meeting_agenda_item(
     """Create a meeting agenda item. (required: meeting_id, item_type)"""
     payload: dict[str, Any] = {
         "itemType": item_type,
-        "_links": {"meeting": {"href": f"/api/v3/meetings/{meeting_id}"}},
     }
     if title is not None:
         payload["title"] = title
@@ -1238,24 +1207,25 @@ def create_meeting_agenda_item(
         payload["durationInMinutes"] = duration_in_minutes
     if notes:
         payload["notes"] = {"format": "markdown", "raw": notes}
-    return get_client().create_meeting_agenda_item(payload)
+    return get_client().create_meeting_agenda_item(meeting_id, payload)
 
 
 @mcp.tool()
-def get_meeting_agenda_item_by_id(id: int) -> dict[str, Any]:
-    """Get a single meeting agenda item by ID. (required: id)"""
-    return get_client().get_meeting_agenda_item_by_id(id)
+def get_meeting_agenda_item_by_id(meeting_id: int, id: int) -> dict[str, Any]:
+    """Get a single meeting agenda item by ID. (required: meeting_id, id)"""
+    return get_client().get_meeting_agenda_item_by_id(meeting_id, id)
 
 
 @mcp.tool()
 def update_meeting_agenda_item(
+    meeting_id: int,
     id: int,
     title: str | None = None,
     duration_in_minutes: int | None = None,
     notes: str | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a meeting agenda item. (required: id)"""
+    """Update a meeting agenda item. (required: meeting_id, id)"""
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1265,56 +1235,57 @@ def update_meeting_agenda_item(
         payload["notes"] = {"format": "markdown", "raw": notes}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_meeting_agenda_item(id, payload)
+    return get_client().update_meeting_agenda_item(meeting_id, id, payload)
 
 
 @mcp.tool()
-def delete_meeting_agenda_item(id: int) -> dict[str, Any]:
-    """Delete a meeting agenda item. (required: id)"""
-    return get_client().delete_meeting_agenda_item(id)
+def delete_meeting_agenda_item(meeting_id: int, id: int) -> dict[str, Any]:
+    """Delete a meeting agenda item. (required: meeting_id, id)"""
+    return get_client().delete_meeting_agenda_item(meeting_id, id)
 
 
 # ─── Meeting Outcome Tools ────────────────────────────────────────────
 
 @mcp.tool()
 def create_meeting_outcome(
+    meeting_id: int,
     meeting_agenda_item_id: int,
     outcome_type: str = "simple",
     text: str = "",
 ) -> dict[str, Any]:
-    """Create a meeting outcome. (required: meeting_agenda_item_id, outcome_type)"""
-    return get_client().create_meeting_outcome({
+    """Create a meeting outcome. (required: meeting_id, meeting_agenda_item_id, outcome_type)"""
+    return get_client().create_meeting_outcome(meeting_id, meeting_agenda_item_id, {
         "outcomeType": outcome_type,
-        "_links": {"agendaItem": {"href": f"/api/v3/meeting_agenda_items/{meeting_agenda_item_id}"}},
         "text": {"format": "markdown", "raw": text},
     })
 
 
 @mcp.tool()
-def get_meeting_outcome_by_id(id: int) -> dict[str, Any]:
-    """Get a single meeting outcome by ID. (required: id)"""
-    return get_client().get_meeting_outcome_by_id(id)
+def get_meeting_outcome_by_id(meeting_id: int, id: int) -> dict[str, Any]:
+    """Get a single meeting outcome by ID. (required: meeting_id, id)"""
+    return get_client().get_meeting_outcome_by_id(meeting_id, id)
 
 
 @mcp.tool()
 def update_meeting_outcome(
+    meeting_id: int,
     id: int,
     text: str | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a meeting outcome. (required: id)"""
+    """Update a meeting outcome. (required: meeting_id, id)"""
     payload: dict[str, Any] = {}
     if text is not None:
         payload["text"] = {"format": "markdown", "raw": text}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_meeting_outcome(id, payload)
+    return get_client().update_meeting_outcome(meeting_id, id, payload)
 
 
 @mcp.tool()
-def delete_meeting_outcome(id: int) -> dict[str, Any]:
-    """Delete a meeting outcome. (required: id)"""
-    return get_client().delete_meeting_outcome(id)
+def delete_meeting_outcome(meeting_id: int, id: int) -> dict[str, Any]:
+    """Delete a meeting outcome. (required: meeting_id, id)"""
+    return get_client().delete_meeting_outcome(meeting_id, id)
 
 
 # ─── Meeting Section Tools ────────────────────────────────────────────
@@ -1326,27 +1297,27 @@ def create_meeting_section(
     position: int = 0,
 ) -> dict[str, Any]:
     """Create a meeting section. (required: meeting_id, title, position)"""
-    return get_client().create_meeting_section({
+    return get_client().create_meeting_section(meeting_id, {
         "title": title,
         "position": position,
-        "_links": {"meeting": {"href": f"/api/v3/meetings/{meeting_id}"}},
     })
 
 
 @mcp.tool()
-def get_meeting_section_by_id(id: int) -> dict[str, Any]:
-    """Get a single meeting section by ID. (required: id)"""
-    return get_client().get_meeting_section_by_id(id)
+def get_meeting_section_by_id(meeting_id: int, id: int) -> dict[str, Any]:
+    """Get a single meeting section by ID. (required: meeting_id, id)"""
+    return get_client().get_meeting_section_by_id(meeting_id, id)
 
 
 @mcp.tool()
 def update_meeting_section(
+    meeting_id: int,
     id: int,
     title: str | None = None,
     position: int | None = None,
     lock_version: int | None = None,
 ) -> dict[str, Any]:
-    """Update a meeting section. (required: id)"""
+    """Update a meeting section. (required: meeting_id, id)"""
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1354,13 +1325,13 @@ def update_meeting_section(
         payload["position"] = position
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_meeting_section(id, payload)
+    return get_client().update_meeting_section(meeting_id, id, payload)
 
 
 @mcp.tool()
-def delete_meeting_section(id: int) -> dict[str, Any]:
-    """Delete a meeting section. (required: id)"""
-    return get_client().delete_meeting_section(id)
+def delete_meeting_section(meeting_id: int, id: int) -> dict[str, Any]:
+    """Delete a meeting section. (required: meeting_id, id)"""
+    return get_client().delete_meeting_section(meeting_id, id)
 
 
 # ─── Recurring Meeting Tools ──────────────────────────────────────────
@@ -1400,8 +1371,8 @@ def create_recurring_meeting(
         "title": title,
         "frequency": frequency,
         "_links": {"project": {"href": f"/api/v3/projects/{project_id}"}},
-        "startTime": start_time,
-        "endTime": end_time,
+        "start_time": start_time,
+        "end_time": end_time,
         "intervalValue": interval_value,
     }
     if days is not None:

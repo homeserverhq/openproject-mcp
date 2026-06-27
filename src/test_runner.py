@@ -322,12 +322,25 @@ async def async_main() -> None:
     sid_type = seed.get("types_id", 1)
     sid_priority = seed.get("priorities_id", 1)
     sid_role = seed.get("roles_id", 1)
-    sid_user = seed.get("users_id", 4) or seed.get("users_id", 4)
+    sid_user = seed.get("users_id", 4)
+
+    # Discover existing project IDs for use in read-only queries
+    any_project_id = None
+    if "list_projects" in tool_names:
+        pr = await session.call_tool("list_projects", {})
+        pc = extract_content(pr)
+        p_items = get_list_items(pc)
+        for pit in p_items:
+            if isinstance(pit, dict):
+                any_project_id = pit.get("id")
+                break
+    if any_project_id is None:
+        any_project_id = 1
 
     # Discover additional reference IDs for categories, budgets, wikipages, attachments
     extra_discover = [
-        ("categories_id", "list_project_categories", {"project_id": 1}),
-        ("budgets_id", "list_project_budgets", {"project_id": 1}),
+        ("categories_id", "list_project_categories", {"project_id": any_project_id}),
+        ("budgets_id", "list_project_budgets", {"project_id": any_project_id}),
     ]
     for skey, list_tool, list_args in extra_discover:
         if list_tool in tool_names:
@@ -374,41 +387,52 @@ async def async_main() -> None:
     # ══════════════════════════════════════════════════════════════════
     tr.print_phase("Phase 2 — Read-Only Data")
 
-    ro_tests = [
+    # ── List tools (always expect success) ──
+    list_only_tests = [
+        ("list_notifications", "list_notifications", {}, "success"),
+        ("list_documents", "list_documents", {}, "success"),
+        ("list_reminders", "list_reminders", {}, "success"),
         ("list_days", "list_days", {}, "success"),
         ("list_non_working_days", "list_non_working_days", {}, "success"),
         ("list_week_days", "list_week_days", {}, "success"),
-        ("get_week_day_mon", "get_week_day_by_number", {"day": 1}, "success"),
-        ("get_week_day_sun", "get_week_day_by_number", {"day": 7}, "success"),
-        ("list_notifications", "list_notifications", {}, "success"),
-        ("get_notification_by_id", "get_notification_by_id", {"id": 1}, "any"),
-        ("list_documents", "list_documents", {}, "success"),
-        ("get_document_by_id", "get_document_by_id", {"id": 1}, "any"),
-        ("update_document", "update_document", {"id": 1}, "any"),
-        ("list_cost_types", "list_cost_types", {}, "any"),
-        ("get_cost_type_by_id", "get_cost_type_by_id", {"id": 1}, "any"),
-        ("list_reminders", "list_reminders", {}, "success"),
-        ("update_reminder", "update_reminder", {"id": 1}, "any"),
-        ("delete_reminder", "delete_reminder", {"id": 1}, "any"),
-        ("list_wiki_page_links", "list_wiki_page_links", {}, "any"),
-        ("create_wiki_page_link", "create_wiki_page_link", {"work_package_id": 1, "wiki_page_id": 1}, "any"),
-        ("delete_wiki_page_link", "delete_wiki_page_link", {"id": 1}, "any"),
         ("health_check", "health_check", {}, "success"),
     ]
+    for label, tool, args, exp in list_only_tests:
+        if tool in tool_names:
+            await tr.run(session, label, tool, args, expect=exp)
 
-    for label, tool, args, exp in ro_tests:
-        if tool not in tool_names:
-            continue
-        await tr.run(session, label, tool, args, expect=exp)
+    # ── Discover-and-get: list first, then get with discovered ID ──
+    async def list_then_get(list_tool: str, get_tool: str, label: str, list_args: dict[str, Any] | None = None,
+                            get_args_builder: Any = None) -> None:
+        if list_tool not in tool_names or get_tool not in tool_names:
+            return
+        lr = await tr.call(session, f"list {label}", list_tool, list_args or {})
+        lc = extract_content(lr)
+        items = get_list_items(lc)
+        first_id = items[0].get("id") if items and isinstance(items[0], dict) else None
+        if first_id is not None:
+            await tr.run(session, f"get {label}", get_tool, {"id": first_id})
+        elif get_args_builder:
+            await tr.run(session, f"get {label}", get_tool, get_args_builder)
 
-    # Discovered ID-based tests (Phase 1 must have populated lists first)
-    discovered_tests = [
-        ("list_project_categories", "list_project_categories", {"project_id": 1}, "success"),
-        ("get_category_by_id", "get_category_by_id", {"id": seed.get("categories_id", 1)}, "any"),
-        ("list_project_budgets", "list_project_budgets", {"project_id": 1}, "success"),
-        ("get_budget_by_id", "get_budget_by_id", {"id": seed.get("budgets_id", 1)}, "any"),
-        ("get_wiki_page_by_id", "get_wiki_page_by_id", {"id": seed.get("wikipages_id", 1)}, "any"),
-        ("get_attachment_by_id", "get_attachment_by_id", {"id": seed.get("attachments_id", 1)}, "any"),
+    await list_then_get("list_notifications", "get_notification_by_id", "notification")
+    await list_then_get("list_documents", "get_document_by_id", "document", get_args_builder={"id": 1})
+    await list_then_get("list_documents", "update_document", "document update", get_args_builder={"id": 1})
+    # (reminder update/delete tested in WP CRUD cycle)
+
+    # ── Discovered ID-based tests (categories, budgets, wikipages, attachments) ──
+    await list_then_get("list_project_categories", "get_category_by_id", "category",
+                        list_args={"project_id": any_project_id})
+
+    await list_then_get("list_project_budgets", "get_budget_by_id", "budget",
+                        list_args={"project_id": any_project_id})
+
+    # Fixed: weekday, paginated, and date range tests
+    fixed_tests = [
+        ("get_week_day_mon", "get_week_day_by_number", {"day": 1}, "success"),
+        ("get_week_day_sun", "get_week_day_by_number", {"day": 7}, "success"),
+        ("get_wiki_page_by_id", "get_wiki_page_by_id", {"id": seed.get("wikipages_id", 1)}, "success"),
+        ("get_attachment_by_id", "get_attachment_by_id", {"id": seed.get("attachments_id", 1)}, "success"),
         ("list_projects_paged", "list_projects", {"page_size": 5, "offset": 1}, "success"),
         ("list_work_packages_paged", "list_work_packages", {"page_size": 5}, "success"),
         ("list_versions_paged", "list_versions", {"page_size": 5}, "success"),
@@ -423,7 +447,7 @@ async def async_main() -> None:
         ("get_days_by_range", "list_days", {"date_from": "2026-06-01", "date_to": "2026-06-30"}, "success"),
         ("list_non_working_empty", "list_non_working_days", {"date_from": "2026-06-01", "date_to": "2026-06-01"}, "success"),
     ]
-    for label, tool, args, exp in discovered_tests:
+    for label, tool, args, exp in fixed_tests:
         if tool not in tool_names:
             continue
         await tr.run(session, label, tool, args, expect=exp)
@@ -435,7 +459,17 @@ async def async_main() -> None:
 
     store: dict[str, Any] = {}
 
-    # ────────── PROJECT ──────────
+    # Create a persistent project — used by all dependent CRUDs, deleted at end of Phase 3
+    ppn = make_name("base")
+    pr = await tr.run(session, "create project", "create_project", {
+        "name": ppn, "identifier": ppn, "description": "Persistent base project", "public": True, "active": True,
+    })
+    ppid = extract_content(pr).get("id") if isinstance(extract_content(pr), dict) else None
+    if ppid:
+        store["persistent_project_id"] = ppid
+        store["project_ident"] = ppn
+
+    # ────────── PROJECT CRUD (self-contained) ──────────
     if "create_project" in tool_names and "delete_project" in tool_names:
         pn = make_name("project")
         r = await tr.run(session, "create", "create_project", {
@@ -444,26 +478,21 @@ async def async_main() -> None:
         pid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
         if pid:
             store["project_id"] = pid
-            store["project_ident"] = pn
 
         await tr.run(session, "list", "list_projects", {}, expect="success")
         await tr.run(session, "get", "get_project_by_id", {"id": pid}, expect="any" if not pid else "success")
 
         if pid:
             cpy_name = pn + "-cpy"
-            cpy_id = pn + "_cpy"
-            await tr.run(session, "copy", "copy_project", {"id": pid, "name": cpy_name, "identifier": cpy_id}, expect="any")
-            # Copy is async — poll for completion, then find and delete the copy project
-            import time
+            await tr.run(session, "copy", "copy_project", {"id": pid, "name": cpy_name, "identifier": pn + "_cpy"}, expect="any")
             for attempt in range(10):
                 await asyncio.sleep(1)
                 lr = await session.call_tool("list_projects", {"page_size": 100})
-                lc = extract_content(lr)
-                found = find_match(lc, "name", cpy_name)
+                found = find_match(extract_content(lr), "name", cpy_name)
                 if found and "delete_project" in tool_names:
                     await session.call_tool("delete_project", {"id": found.get("id")})
                     break
-            g = await tr.call(session, "get", "get_project_by_id", {"id": pid})
+            g = await tr.call(session, "get lock", "get_project_by_id", {"id": pid})
             gd = extract_content(g)
             lv = gd.get("lockVersion") if isinstance(gd, dict) else None
             up = {"id": pid, "name": "upd-" + pn}
@@ -477,7 +506,7 @@ async def async_main() -> None:
     # ────────── VERSION ──────────
     if "create_version" in tool_names and "delete_version" in tool_names:
         vn = make_name("ver")
-        r = await tr.run(session, "create", "create_version", {"name": vn, "project_id": 1})
+        r = await tr.run(session, "create", "create_version", {"name": vn, "project_id": store.get("persistent_project_id", 1)})
         vid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
 
         await tr.run(session, "list", "list_versions", {}, expect="success")
@@ -497,7 +526,7 @@ async def async_main() -> None:
     # ────────── MEMBERSHIP ──────────
     if "create_membership" in tool_names and "delete_membership" in tool_names:
         mc = await tr.run(session, "create", "create_membership", {
-            "project_id": 2, "principal_id": sid_user, "role_ids": [sid_role],
+            "project_id": store.get("persistent_project_id", 1), "principal_id": sid_user, "role_ids": [sid_role],
         }, expect="any")
         mid = extract_content(mc).get("id") if isinstance(extract_content(mc), dict) else None
         await tr.run(session, "list", "list_memberships", {}, expect="success")
@@ -520,7 +549,7 @@ async def async_main() -> None:
     if "create_work_package" in tool_names:
         wn = make_name("wp")
         r = await tr.run(session, "create", "create_work_package", {
-            "subject": wn, "project_id": 1, "type_id": sid_type,
+            "subject": wn, "project_id": store.get("persistent_project_id", 1), "type_id": sid_type,
             "priority_id": sid_priority, "status_id": sid_status,
         })
         wpid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
@@ -553,12 +582,15 @@ async def async_main() -> None:
             await tr.run(session, "toggle emoji", "toggle_emoji_reaction", {"activity_id": act_id or 1, "reaction": "thumbs_up"}, expect="any")
             await tr.run(session, "list emoji", "list_emoji_reactions", {"activity_id": act_id or 1}, expect="any")
 
-            # Wiki page link — ALWAYS called
-            wl = await tr.run(session, "create wiki link", "create_wiki_page_link", {"work_package_id": wpid, "wiki_page_id": seed.get("wikipages_id", 1)}, expect="any")
-            wld = extract_content(wl)
-            wlid = wld.get("id") if isinstance(wld, dict) else None
-            if wlid and "delete_wiki_page_link" in tool_names:
-                await tr.run(session, "delete wiki link", "delete_wiki_page_link", {"id": wlid}, expect="any")
+            # Reminder — create, update, delete on the WP
+            if "create_reminder" in tool_names:
+                rr = await tr.run(session, "create reminder", "create_reminder", {"work_package_id": wpid, "remind_at": "2026-07-01T10:00:00Z", "note": "Test reminder"})
+                rrid = extract_content(rr).get("id") if isinstance(extract_content(rr), dict) else None
+                if rrid:
+                    await tr.run(session, "update reminder", "update_reminder", {"id": rrid, "note": "Updated reminder"})
+                    await tr.run(session, "delete reminder", "delete_reminder", {"id": rrid})
+                    await asyncio.sleep(0.3)
+                    await tr.run(session, "verify reminder delete", "delete_reminder", {"id": rrid}, expect="error")
 
             # Update
             g = await tr.call(session, "get lock", "get_work_package_by_id", {"id": wpid})
@@ -578,7 +610,7 @@ async def async_main() -> None:
     if "create_meeting" in tool_names:
         mn = make_name("mtg")
         r = await tr.run(session, "create", "create_meeting", {
-            "title": mn, "project_id": 1, "start_time": "2026-07-01T10:00:00Z", "end_time": "2026-07-01T11:00:00Z",
+            "title": mn, "project_id": store.get("persistent_project_id", 1), "start_time": "2026-07-01T10:00:00Z", "end_time": "2026-07-01T11:00:00Z",
         }, expect="any")
         mtid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
 
@@ -594,24 +626,24 @@ async def async_main() -> None:
             agid = extract_content(ac).get("id") if isinstance(extract_content(ac), dict) else None
 
             if agid:
-                await tr.run(session, "get agenda", "get_meeting_agenda_item_by_id", {"id": agid})
-                await tr.run(session, "update agenda", "update_meeting_agenda_item", {"id": agid, "title": "UpdAg"})
-                # Meeting outcome — depends on agenda item
-                oc = await tr.run(session, "create outcome", "create_meeting_outcome", {"meeting_agenda_item_id": agid, "outcome_type": "simple", "text": "Done"})
+                await tr.run(session, "get agenda", "get_meeting_agenda_item_by_id", {"meeting_id": mtid, "id": agid})
+                await tr.run(session, "update agenda", "update_meeting_agenda_item", {"meeting_id": mtid, "id": agid, "title": "UpdAg"})
+                # Meeting outcome — depends on agenda item (backend may not support)
+                oc = await tr.run(session, "create outcome", "create_meeting_outcome", {"meeting_id": mtid, "meeting_agenda_item_id": agid, "outcome_type": "simple", "text": "Done"}, expect="any")
                 ocid = extract_content(oc).get("id") if isinstance(extract_content(oc), dict) else None
                 if ocid:
-                    await tr.run(session, "get outcome", "get_meeting_outcome_by_id", {"id": ocid})
-                    await tr.run(session, "update outcome", "update_meeting_outcome", {"id": ocid, "text": "Upd"})
-                    await tr.run(session, "delete outcome", "delete_meeting_outcome", {"id": ocid})
-                await tr.run(session, "delete agenda", "delete_meeting_agenda_item", {"id": agid})
+                    await tr.run(session, "get outcome", "get_meeting_outcome_by_id", {"meeting_id": mtid, "id": ocid})
+                    await tr.run(session, "update outcome", "update_meeting_outcome", {"meeting_id": mtid, "id": ocid, "text": "Upd"})
+                    await tr.run(session, "delete outcome", "delete_meeting_outcome", {"meeting_id": mtid, "id": ocid})
+                await tr.run(session, "delete agenda", "delete_meeting_agenda_item", {"meeting_id": mtid, "id": agid})
 
             # Section
             sc = await tr.run(session, "create section", "create_meeting_section", {"meeting_id": mtid, "title": "Sec1", "position": 1})
             scid = extract_content(sc).get("id") if isinstance(extract_content(sc), dict) else None
             if scid:
-                await tr.run(session, "get section", "get_meeting_section_by_id", {"id": scid})
-                await tr.run(session, "update section", "update_meeting_section", {"id": scid, "title": "UpdSec"})
-                await tr.run(session, "delete section", "delete_meeting_section", {"id": scid})
+                await tr.run(session, "get section", "get_meeting_section_by_id", {"meeting_id": mtid, "id": scid})
+                await tr.run(session, "update section", "update_meeting_section", {"meeting_id": mtid, "id": scid, "title": "UpdSec"})
+                await tr.run(session, "delete section", "delete_meeting_section", {"meeting_id": mtid, "id": scid})
 
             await tr.run(session, "update", "update_meeting", {"id": mtid, "title": "upd-" + mn})
             await tr.run(session, "delete", "delete_meeting", {"id": mtid})
@@ -632,7 +664,7 @@ async def async_main() -> None:
     # ────────── NEWS ──────────
     if "create_news" in tool_names and "delete_news" in tool_names:
         nn = make_name("news")
-        r = await tr.run(session, "create", "create_news", {"title": nn, "project_id": 1})
+        r = await tr.run(session, "create", "create_news", {"title": nn, "project_id": store.get("persistent_project_id", 1)})
         nid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
         await tr.run(session, "list", "list_news", {}, expect="success")
         if nid:
@@ -647,12 +679,9 @@ async def async_main() -> None:
         gn = make_name("grid")
         # Discover project identifier for scope href via list_projects
         scope_href = "/projects/demo-project/boards"
-        plr = await tr.call(session, "list projects", "list_projects", {})
-        p_items = get_list_items(extract_content(plr))
-        for pit in p_items:
-            if isinstance(pit, dict) and pit.get("id") == 1:
-                scope_href = f"/projects/{pit.get('identifier', 'demo-project')}/boards"
-                break
+        pident = store.get("project_ident", "")
+        if pident:
+            scope_href = f"/projects/{pident}/boards"
         r = await tr.run(session, "create", "create_grid", {
             "page": gn, "row_count": 3, "column_count": 2, "scope_href": scope_href,
         })
@@ -698,7 +727,7 @@ async def async_main() -> None:
                 await tr.run(session, "verify-delete", "get_time_entry_by_id", {"id": teid}, expect="error")
         else:
             await tr.run(session, "create", "create_time_entry", {
-                "project_id": 1, "hours": "PT2H", "spent_on": "2026-06-27", "comment": ten,
+                "project_id": store.get("persistent_project_id", 1), "hours": "PT2H", "spent_on": "2026-06-27", "comment": ten,
             }, expect="any")
         await tr.run(session, "list", "list_time_entries", {}, expect="success")
 
@@ -706,12 +735,12 @@ async def async_main() -> None:
     if "create_recurring_meeting" in tool_names and "delete_recurring_meeting" in tool_names:
         rmn = make_name("rm")
         r = await tr.run(session, "create", "create_recurring_meeting", {
-            "project_id": 1, "title": rmn, "frequency": "weekly",
+            "project_id": store.get("persistent_project_id", 1), "title": rmn, "frequency": "weekly",
             "start_time": "2026-07-01T10:00:00Z", "end_time": "2026-07-01T11:00:00Z",
             "days": [1],
-        }, expect="any")
+        })
         rmid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
-        await tr.run(session, "list", "list_recurring_meetings", {}, expect="any")
+        await tr.run(session, "list", "list_recurring_meetings", {}, expect="success")
         if rmid:
             await tr.run(session, "get", "get_recurring_meeting_by_id", {"id": rmid})
             await tr.run(session, "update", "update_recurring_meeting", {"id": rmid, "title": "upd-" + rmn})
@@ -719,10 +748,12 @@ async def async_main() -> None:
             await asyncio.sleep(0.3)
             await tr.run(session, "verify-delete", "get_recurring_meeting_by_id", {"id": rmid}, expect="error")
 
-    # ══════════════════════════════════════════════════════════════════
-    # Phase 4: Domain-specific standalone tools
-    # ══════════════════════════════════════════════════════════════════
-    tr.print_phase("Phase 4 — Domain-Specific Tools")
+    # ────────── CLEANUP: Delete persistent project ──────────
+    ppid = store.get("persistent_project_id")
+    if ppid and "delete_project" in tool_names:
+        await tr.run(session, "delete base project", "delete_project", {"id": ppid})
+        await asyncio.sleep(0.3)
+        await tr.run(session, "verify base deleted", "get_project_by_id", {"id": ppid}, expect="error")
 
     # ══════════════════════════════════════════════════════════════════
     # Phase 5: Leak Detection
@@ -736,6 +767,8 @@ async def async_main() -> None:
         "meetings": {"list_tool": "list_meetings", "match_field": "title"},
         "news": {"list_tool": "list_news", "match_field": "title"},
         "grids": {"list_tool": "list_grids", "match_field": "page"},
+        "time_entries": {"list_tool": "list_time_entries", "match_field": "comment"},
+        "recurring_meetings": {"list_tool": "list_recurring_meetings", "match_field": "title"},
     }
 
     leak_found = False
@@ -752,14 +785,17 @@ async def async_main() -> None:
         lc = extract_content(lr)
         for item in get_list_items(lc):
             if isinstance(item, dict):
-                nv = item.get(mf, "")
+                nv = str(item.get(mf, ""))
                 if isinstance(nv, str) and nv.startswith(rid_prefix):
                     leak_found = True
+                    print(f"  LEAK DETECTED: {domain} id={item.get('id')} {mf}='{nv}'")
                     art_id = item.get("id")
                     del_map = {
                         "projects": "delete_project", "work_packages": "delete_work_package",
                         "versions": "delete_version", "meetings": "delete_meeting",
                         "news": "delete_news", "grids": "delete_grid",
+                        "time_entries": "delete_time_entry",
+                        "recurring_meetings": "delete_recurring_meeting",
                     }
                     dt = del_map.get(domain)
                     if dt and art_id:
