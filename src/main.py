@@ -1685,6 +1685,14 @@ def delete_grid(id: int) -> dict[str, Any]:
     return get_client().delete_grid(id)
 
 
+# ─── Job Status ────────────────────────────────────────────────────────
+
+@mcp.tool()
+def get_job_status(job_id: str) -> dict[str, Any]:
+    """Get the status of an async job. (required: job_id)"""
+    return get_client().get_job_status(job_id)
+
+
 # ─── Health check ─────────────────────────────────────────────────────
 
 @mcp.tool()

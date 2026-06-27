@@ -659,3 +659,8 @@ class OpenProjectClient:
 
     def delete_grid(self, id: int) -> dict[str, Any]:
         return self._delete(f"/grids/{id}")
+
+    # ─── Job Status ─────────────────────────────────────────────────
+
+    def get_job_status(self, job_id: str) -> dict[str, Any]:
+        return self._get(f"/job_statuses/{job_id}")

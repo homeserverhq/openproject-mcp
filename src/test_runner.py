@@ -437,7 +437,16 @@ async def async_main() -> None:
     await tr.run(session, "get", "get_project_by_id", {"id": pid})
 
     cpy_name = pn + "-cpy"
-    await tr.run(session, "copy", "copy_project", {"id": pid, "name": cpy_name, "identifier": pn + "_cpy"})
+    cr = await tr.run(session, "copy", "copy_project", {"id": pid, "name": cpy_name, "identifier": pn + "_cpy"})
+    cpy_data = extract_content(cr)
+    job_id = cpy_data.get("jobId") if isinstance(cpy_data, dict) else None
+    for _ in range(30):
+        await asyncio.sleep(1)
+        jr = await session.call_tool("get_job_status", {"job_id": job_id})
+        jd = extract_content(jr)
+        if isinstance(jd, dict) and jd.get("status") == "success":
+            break
+
     for attempt in range(10):
         await asyncio.sleep(1)
         lr = await session.call_tool("list_projects", {"page_size": 100})
