@@ -2,7 +2,7 @@
 
 This repository contains a Model Context Protocol (MCP) server that acts
 as a secure, multi-tenant proxy between an AI Assistant and the OpenProject
-backend API. It exposes **109 MCP tools** covering 17 resource domains
+backend API. It exposes **109 MCP tools** covering 19 resource domains
 with full CRUD, workflow, and relationship management.
 
 ## ✨ Features
@@ -14,13 +14,13 @@ with full CRUD, workflow, and relationship management.
   user identity isolation, ensuring all AI-driven actions are scoped to
   the authenticated user's permissions.
 - **📊 Full OpenProject Coverage** — 109 tools mapped to OpenProject REST API
-  endpoints across 17 resource domains.
+  endpoints across 19 resource domains.
 - **⚡ TOON Optimization** — Bulk list responses are automatically compressed
   using TOON (Token-Optimized Object Notation) to reduce token consumption
   and maximize context window efficiency.
 - **🚀 Efficient Gets** — GET responses return only commonly used fields by
   default. Full objects are available via an `include_all_fields` flag.
-- **🧪 Comprehensive Testing** — 141 automated tests covering all tool
+- **🧪 Comprehensive Testing** — 152 automated tests covering all tool
   domains, run via the test runner pipeline.
 
 ## 🔧 Environment Variables
@@ -30,6 +30,7 @@ with full CRUD, workflow, and relationship management.
 | `OPENPROJECT_BASE_URL` | Yes | Docker-internal URL of the OpenProject API (e.g. `http://openproject-web:8080`). |
 | `MCP_SERVER_PORT` | Yes | Port number the MCP server listens on |
 | `ALLOW_ALL_AGGREGATE` | No | When `true`, aggregate listing tools honor the `include_all_fields` parameter. When `false` (default), the parameter is silently forced to `False` for aggregate list operations. |
+| `IS_STATEFUL` | No | When `true`, uses stateful Streamable HTTP with session tracking. When `false` (default), uses stateless mode. |
 
 ## 📦 Installation & Local Development
 
@@ -87,7 +88,7 @@ The server implements 109 MCP tools organized into the following categories:
 - `delete_project` — Delete a project
 - `copy_project` — Copy a project
 
-### 📋 Work Package (19 tools)
+### 📋 Work Package (13 tools)
 
 - `list_work_packages` — List all work packages
 - `get_work_package_by_id` — Get a single work package by ID
@@ -102,8 +103,14 @@ The server implements 109 MCP tools organized into the following categories:
 - `add_work_package_watcher` — Add a watcher to a work package
 - `remove_work_package_watcher` — Remove a watcher from a work package
 - `list_work_package_attachments` — List attachment metadata for a work package
+
+### 😊 Emoji Reaction (2 tools)
+
 - `toggle_emoji_reaction` — Toggle an emoji reaction on an activity
 - `list_emoji_reactions` — List emoji reactions on an activity
+
+### ⏰ Reminder (4 tools)
+
 - `create_reminder` — Create a reminder on a work package
 - `list_reminders` — List all reminders
 - `update_reminder` — Update a reminder
@@ -236,4 +243,4 @@ The server implements 109 MCP tools organized into the following categories:
 ### 🛠️ Utility (2 tools)
 
 - `get_job_status` — Get the status of an async job
-- `health_check` — Check connectivity to the OpenProject backend API
+- `health_check` — Basic server health check
