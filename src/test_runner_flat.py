@@ -365,6 +365,8 @@ async def async_main() -> None:
     tr.check_ok(await session.call_tool("get_wiki_page_by_id", {"id": 1}), "get_wiki_page_by_id", "get_wiki_page_by_id")
     tr.check_ok(await session.call_tool("get_attachment_by_id", {"id": 1}), "get_attachment_by_id", "get_attachment_by_id")
 
+    tr.check_ok(await session.call_tool("get_cost_type_by_id", {"id": 1}), "get cost type", "get_cost_type_by_id")
+
     # Paginated list tests
     tr.check_ok(await session.call_tool("list_projects", {"page_size": 5, "offset": 1}), "list_projects_paged", "list_projects")
     tr.check_ok(await session.call_tool("list_work_packages", {"page_size": 5}), "list_work_packages_paged", "list_work_packages")
@@ -439,12 +441,10 @@ async def async_main() -> None:
     tr.check_verdel(await session.call_tool("get_project_by_id", {"id": pid2}), "verify-delete", "get_project_by_id")
 
     # ────────── CATEGORIES & BUDGETS ──────────
-    cid = None
-    bid = None
-    for proj in get_list_items(extract_content(await session.call_tool("list_projects", {"page_size": 10}))):
-        cid = cid or get_first_id(extract_content(await session.call_tool("list_project_categories", {"project_id": (proj or {}).get("id")})))
-        bid = bid or get_first_id(extract_content(await session.call_tool("list_project_budgets", {"project_id": (proj or {}).get("id")})))
-
+    r = tr.check_ok(await session.call_tool("list_project_categories", {"project_id": 1}), "list categories", "list_project_categories")
+    cid = get_first_id(extract_content(r))
+    r = tr.check_ok(await session.call_tool("list_project_budgets", {"project_id": 1}), "list budgets", "list_project_budgets")
+    bid = get_first_id(extract_content(r))
     tr.check_ok(await session.call_tool("get_category_by_id", {"id": cid}), "get category", "get_category_by_id")
     tr.check_ok(await session.call_tool("get_budget_by_id", {"id": bid}), "get budget", "get_budget_by_id")
 
