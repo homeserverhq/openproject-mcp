@@ -14,7 +14,7 @@ import os
 import random
 import string
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -612,7 +612,8 @@ async def async_main() -> None:
     await tr.run(session, "toggle emoji", "toggle_emoji_reaction", {"activity_id": act_id, "reaction": "thumbs_up"})
     await tr.run(session, "list emoji", "list_emoji_reactions", {"activity_id": act_id})
 
-    rr = await tr.run(session, "create reminder", "create_reminder", {"work_package_id": wpid, "remind_at": "2026-07-01T10:00:00+00:00", "note": "Test reminder"})
+    future = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    rr = await tr.run(session, "create reminder", "create_reminder", {"work_package_id": wpid, "remind_at": future, "note": "Test reminder"})
     rrid = extract_content(rr).get("id") if isinstance(extract_content(rr), dict) else None
     await tr.run(session, "update reminder", "update_reminder", {"id": rrid, "note": "Updated reminder"})
     await tr.run(session, "delete reminder", "delete_reminder", {"id": rrid})
