@@ -2,7 +2,7 @@
 
 This repository contains a Model Context Protocol (MCP) server that acts
 as a secure, multi-tenant proxy between an AI Assistant and the OpenProject
-backend API. It exposes **109 MCP tools** covering 19 resource domains
+backend API. It exposes **109 MCP tools** covering 17 resource domains
 with full CRUD, workflow, and relationship management.
 
 ## ✨ Features
@@ -14,7 +14,7 @@ with full CRUD, workflow, and relationship management.
   user identity isolation, ensuring all AI-driven actions are scoped to
   the authenticated user's permissions.
 - **📊 Full OpenProject Coverage** — 109 tools mapped to OpenProject REST API
-  endpoints across 19 resource domains.
+  endpoints across 17 resource domains.
 - **⚡ TOON Optimization** — Bulk list responses are automatically compressed
   using TOON (Token-Optimized Object Notation) to reduce token consumption
   and maximize context window efficiency.
@@ -103,18 +103,6 @@ The server implements 109 MCP tools organized into the following categories:
 - `add_work_package_watcher` — Add a watcher to a work package
 - `remove_work_package_watcher` — Remove a watcher from a work package
 - `list_work_package_attachments` — List attachment metadata for a work package
-
-### 😊 Emoji Reaction (2 tools)
-
-- `toggle_emoji_reaction` — Toggle an emoji reaction on an activity
-- `list_emoji_reactions` — List emoji reactions on an activity
-
-### ⏰ Reminder (4 tools)
-
-- `create_reminder` — Create a reminder on a work package
-- `list_reminders` — List all reminders
-- `update_reminder` — Update a reminder
-- `delete_reminder` — Delete a reminder
 
 ### 🔖 Version (5 tools)
 
@@ -225,10 +213,14 @@ The server implements 109 MCP tools organized into the following categories:
 - `get_document_by_id` — Get a single document by ID
 - `update_document` — Update an existing document
 
-### 🔔 Notification (2 tools)
+### 🔔 Notification & Reminder (6 tools)
 
 - `list_notifications` — List all notifications
 - `get_notification_by_id` — Get a single notification by ID
+- `create_reminder` — Create a reminder on a work package
+- `list_reminders` — List all reminders
+- `update_reminder` — Update a reminder
+- `delete_reminder` — Delete a reminder
 
 ### 🔍 Read-Only Resources (7 tools)
 
@@ -240,7 +232,9 @@ The server implements 109 MCP tools organized into the following categories:
 - `get_attachment_by_id` — Get a single attachment by ID
 - `get_cost_type_by_id` — Get a single cost type by ID
 
-### 🛠️ Utility (2 tools)
+### 🛠️ Utility (4 tools)
 
+- `toggle_emoji_reaction` — Toggle an emoji reaction on an activity
+- `list_emoji_reactions` — List emoji reactions on an activity
 - `get_job_status` — Get the status of an async job
 - `health_check` — Basic server health check
