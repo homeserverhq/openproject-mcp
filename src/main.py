@@ -13,6 +13,7 @@ from src.client import OpenProjectClient, ALLOW_ALL_AGGREGATE
 
 API_KEY = os.environ.get("API_KEY", "")
 MCP_SERVER_PORT = int(os.environ.get("MCP_SERVER_PORT", "6893"))
+IS_STATEFUL = os.getenv("IS_STATEFUL", "false").lower() in ("true", "1", "yes")
 
 # Global client instance (per-request token override via context)
 _client: OpenProjectClient | None = None
@@ -306,7 +307,7 @@ def _build_widgets_payload(widgets: list[GridWidget]) -> list[dict[str, Any]]:
 
 # ─── Work Package Tools ───────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_work_packages(
     page_size: int = 20,
     offset: int = 1,
@@ -343,7 +344,7 @@ def list_work_packages(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_work_package(
     subject: str,
     project_id: int,
@@ -396,7 +397,7 @@ def create_work_package(
     return get_client().create_work_package(_build_wp_payload(data), ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def get_work_package_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single work package by ID.
 
@@ -406,7 +407,7 @@ def get_work_package_by_id(id: int, include_all_fields: bool = False) -> dict[st
     return get_client().get_work_package_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_work_package(
     id: int,
     subject: str | None = None,
@@ -484,7 +485,7 @@ def update_work_package(
     return get_client().update_work_package(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_work_package(id: int) -> dict[str, Any]:
     """Delete a work package.
 
@@ -494,7 +495,7 @@ def delete_work_package(id: int) -> dict[str, Any]:
     return get_client().delete_work_package(id)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_work_package_activities(
     id: int,
     page_size: int = 20,
@@ -510,7 +511,7 @@ def get_work_package_activities(
     return get_client().get_work_package_activities(id, page_size, offset)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def add_work_package_comment(id: int, comment: str) -> dict[str, Any]:
     """Add a comment to a work package.
 
@@ -521,7 +522,7 @@ def add_work_package_comment(id: int, comment: str) -> dict[str, Any]:
     return get_client().add_work_package_comment(id, comment)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_work_package_relations(id: int) -> dict[str, Any]:
     """List relations for a work package.
 
@@ -531,7 +532,7 @@ def get_work_package_relations(id: int) -> dict[str, Any]:
     return get_client().get_work_package_relations(id)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_work_package_relation(
     id: int,
     target_id: int,
@@ -550,7 +551,7 @@ def create_work_package_relation(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_work_package_watchers(id: int) -> dict[str, Any]:
     """List watchers of a work package.
 
@@ -560,7 +561,7 @@ def get_work_package_watchers(id: int) -> dict[str, Any]:
     return get_client().get_work_package_watchers(id)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def add_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     """Add a watcher to a work package.
 
@@ -571,7 +572,7 @@ def add_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     return get_client().add_work_package_watcher(id, user_id)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def remove_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     """Remove a watcher from a work package.
 
@@ -582,7 +583,7 @@ def remove_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     return get_client().remove_work_package_watcher(id, user_id)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_work_package_attachments(
     id: int,
     page_size: int = 20,
@@ -599,7 +600,7 @@ def list_work_package_attachments(
     return {"items": json_to_toon(data)}
 # ─── Project Tools ────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_projects(
     page_size: int = 20,
     offset: int = 1,
@@ -618,7 +619,7 @@ def list_projects(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "openproject"})
 def create_project(
     name: str,
     identifier: str,
@@ -660,7 +661,7 @@ def create_project(
     return get_client().create_project(payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def get_project_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single project by ID.
 
@@ -670,7 +671,7 @@ def get_project_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     return get_client().get_project_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_project(
     id: int,
     name: str | None = None,
@@ -715,7 +716,7 @@ def update_project(
     return get_client().update_project(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_project(id: int) -> dict[str, Any]:
     """Delete a project.
 
@@ -725,7 +726,7 @@ def delete_project(id: int) -> dict[str, Any]:
     return get_client().delete_project(id)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "openproject"})
 def copy_project(
     id: int,
     name: str | None = None,
@@ -748,7 +749,7 @@ def copy_project(
 
 # ─── Version Tools ────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_versions(
     page_size: int = 20,
     offset: int = 1,
@@ -767,7 +768,7 @@ def list_versions(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_version(
     name: str,
     project_id: int,
@@ -803,7 +804,7 @@ def create_version(
     return get_client().create_version(payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def get_version_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single version by ID.
 
@@ -813,7 +814,7 @@ def get_version_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     return get_client().get_version_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_version(
     id: int,
     name: str | None = None,
@@ -854,7 +855,7 @@ def update_version(
     return get_client().update_version(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_version(id: int) -> dict[str, Any]:
     """Delete a version.
 
@@ -866,7 +867,7 @@ def delete_version(id: int) -> dict[str, Any]:
 
 # ─── Membership Tools ─────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_memberships(
     page_size: int = 20,
     offset: int = 1,
@@ -892,7 +893,7 @@ def list_memberships(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_membership(
     project_id: int,
     principal_id: int,
@@ -909,7 +910,7 @@ def create_membership(
     return get_client().create_membership(_build_membership_payload(data), ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_membership_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single membership by ID.
 
@@ -919,7 +920,7 @@ def get_membership_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     return get_client().get_membership_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_membership(
     id: int,
     project_id: int | None = None,
@@ -949,7 +950,7 @@ def update_membership(
     return get_client().update_membership(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_membership(id: int) -> dict[str, Any]:
     """Delete a membership.
 
@@ -961,7 +962,7 @@ def delete_membership(id: int) -> dict[str, Any]:
 
 # ─── User Tools ───────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_users(
     page_size: int = 20,
     offset: int = 1,
@@ -983,7 +984,7 @@ def list_users(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def get_user_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single user by ID.
 
@@ -993,7 +994,7 @@ def get_user_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     return get_client().get_user_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_user(
     login: str,
     first_name: str,
@@ -1020,7 +1021,7 @@ def create_user(
     }, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_user(
     id: int,
     first_name: str | None = None,
@@ -1053,7 +1054,7 @@ def update_user(
     return get_client().update_user(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_user(id: int) -> dict[str, Any]:
     """Delete a user.
 
@@ -1065,7 +1066,7 @@ def delete_user(id: int) -> dict[str, Any]:
 
 # ─── Group Tools ──────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_groups(
     page_size: int = 20,
     offset: int = 1,
@@ -1084,7 +1085,7 @@ def list_groups(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_group_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single group by ID.
 
@@ -1094,7 +1095,7 @@ def get_group_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]
     return get_client().get_group_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_group(
     name: str,
     member_ids: list[int] | None = None,
@@ -1113,7 +1114,7 @@ def create_group(
     return get_client().create_group(payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_group(
     id: int,
     name: str | None = None,
@@ -1136,7 +1137,7 @@ def update_group(
     return get_client().update_group(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_group(id: int) -> dict[str, Any]:
     """Delete a group.
 
@@ -1148,7 +1149,7 @@ def delete_group(id: int) -> dict[str, Any]:
 
 # ─── Status Tools ─────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_statuses(
     page_size: int = 20,
     offset: int = 1,
@@ -1167,7 +1168,7 @@ def list_statuses(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def get_status_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single status by ID.
 
@@ -1179,7 +1180,7 @@ def get_status_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any
 
 # ─── Type Tools ───────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_types(
     page_size: int = 20,
     offset: int = 1,
@@ -1198,7 +1199,7 @@ def list_types(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def get_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single type by ID.
 
@@ -1210,7 +1211,7 @@ def get_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
 
 # ─── Priority Tools ───────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_priorities(
     page_size: int = 20,
     offset: int = 1,
@@ -1229,7 +1230,7 @@ def list_priorities(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def get_priority_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single priority by ID.
 
@@ -1241,7 +1242,7 @@ def get_priority_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
 
 # ─── Role Tools ───────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_roles(
     page_size: int = 20,
     offset: int = 1,
@@ -1260,7 +1261,7 @@ def list_roles(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def get_role_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single role by ID.
 
@@ -1272,7 +1273,7 @@ def get_role_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
 
 # ─── Principal Tools ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_principals(
     page_size: int = 20,
     offset: int = 1,
@@ -1294,7 +1295,7 @@ def list_principals(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_principal_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single principal by ID.
 
@@ -1306,7 +1307,7 @@ def get_principal_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
 
 # ─── Category Tools ───────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_category_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single category by ID.
 
@@ -1316,7 +1317,7 @@ def get_category_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     return get_client().get_category_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_project_categories(
     project_id: int,
     page_size: int = 20,
@@ -1333,7 +1334,7 @@ def list_project_categories(
     return {"items": json_to_toon(data)}
 # ─── Wiki Page Tools ──────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def get_wiki_page_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single wiki page by ID.
 
@@ -1345,7 +1346,7 @@ def get_wiki_page_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
 
 # ─── Budget Tools ─────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def get_budget_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single budget by ID.
 
@@ -1355,7 +1356,7 @@ def get_budget_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any
     return get_client().get_budget_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def list_project_budgets(
     project_id: int,
     page_size: int = 20,
@@ -1370,7 +1371,7 @@ def list_project_budgets(
     """
     data = get_client().list_project_budgets(project_id, page_size, offset)
     return {"items": json_to_toon(data)}
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def get_cost_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single cost type by ID.
 
@@ -1382,7 +1383,7 @@ def get_cost_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
 
 # ─── Notification Tools ───────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_notifications(
     page_size: int = 20,
     offset: int = 1,
@@ -1404,7 +1405,7 @@ def list_notifications(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_notification_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single notification by ID.
 
@@ -1416,7 +1417,7 @@ def get_notification_by_id(id: int, include_all_fields: bool = False) -> dict[st
 
 # ─── Days / Calendar Tools ────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_days(
     page_size: int = 20,
     offset: int = 1,
@@ -1449,7 +1450,7 @@ def list_days(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_non_working_days(
     page_size: int = 20,
     offset: int = 1,
@@ -1478,7 +1479,7 @@ def list_non_working_days(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_non_working_day_by_date(date: str, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single non-working day by date.
 
@@ -1489,7 +1490,7 @@ def get_non_working_day_by_date(date: str, include_all_fields: bool = False) -> 
     return get_client().get_non_working_day_by_date(date, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def list_week_days(
     page_size: int = 20,
     offset: int = 1,
@@ -1508,7 +1509,7 @@ def list_week_days(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "openproject"})
 def get_week_day_by_number(day: str, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single week day by name.
 
@@ -1521,7 +1522,7 @@ def get_week_day_by_number(day: str, include_all_fields: bool = False) -> dict[s
 
 # ─── Attachment Tools (metadata only) ────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def get_attachment_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get attachment metadata by ID.
 
@@ -1533,7 +1534,7 @@ def get_attachment_by_id(id: int, include_all_fields: bool = False) -> dict[str,
 
 # ─── Document Tools ───────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_documents(
     page_size: int = 20,
     offset: int = 1,
@@ -1559,7 +1560,7 @@ def list_documents(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_document_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single document by ID.
 
@@ -1569,7 +1570,7 @@ def get_document_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     return get_client().get_document_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "openproject"})
 def update_document(
     id: int,
     title: str | None = None,
@@ -1596,7 +1597,7 @@ def update_document(
 
 # ─── Emoji Reaction Tools ─────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def list_emoji_reactions(activity_id: int) -> dict[str, Any]:
     """List emoji reactions on an activity.
 
@@ -1605,7 +1606,7 @@ def list_emoji_reactions(activity_id: int) -> dict[str, Any]:
     """
     data = get_client().list_emoji_reactions(activity_id)
     return {"items": json_to_toon(data)}
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "openproject"})
 def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
     """Toggle an emoji reaction on an activity (add or remove).
 
@@ -1623,7 +1624,7 @@ def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
 
 # ─── Reminder Tools ───────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_reminder(
     work_package_id: int,
     remind_at: str,
@@ -1642,7 +1643,7 @@ def create_reminder(
     return get_client().create_reminder(work_package_id, payload)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_reminders(
     page_size: int = 20,
     offset: int = 1,
@@ -1661,7 +1662,7 @@ def list_reminders(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_reminder(
     id: int,
     work_package_id: int | None = None,
@@ -1686,7 +1687,7 @@ def update_reminder(
     return get_client().update_reminder(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_reminder(id: int) -> dict[str, Any]:
     """Delete a reminder.
 
@@ -1698,7 +1699,7 @@ def delete_reminder(id: int) -> dict[str, Any]:
 
 # ─── Meeting Tools ────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_meetings(
     page_size: int = 20,
     offset: int = 1,
@@ -1724,7 +1725,7 @@ def list_meetings(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_meeting(
     title: str,
     project_id: int,
@@ -1753,7 +1754,7 @@ def create_meeting(
     }, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single meeting by ID.
 
@@ -1763,7 +1764,7 @@ def get_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     return get_client().get_meeting_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_meeting(
     id: int,
     title: str | None = None,
@@ -1800,7 +1801,7 @@ def update_meeting(
     return get_client().update_meeting(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_meeting(id: int) -> dict[str, Any]:
     """Delete a meeting.
 
@@ -1810,7 +1811,7 @@ def delete_meeting(id: int) -> dict[str, Any]:
     return get_client().delete_meeting(id)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_meeting_agenda_items(meeting_id: int) -> dict[str, Any]:
     """List agenda items for a meeting.
 
@@ -1819,7 +1820,7 @@ def list_meeting_agenda_items(meeting_id: int) -> dict[str, Any]:
     """
     data = get_client().list_meeting_agenda_items(meeting_id)
     return {"items": json_to_toon(data)}
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
     """List sections for a meeting.
 
@@ -1830,7 +1831,7 @@ def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
     return {"items": json_to_toon(data)}
 # ─── Meeting Agenda Item Tools ────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_meeting_agenda_item(
     meeting_id: int,
     item_type: str = "simple",
@@ -1859,7 +1860,7 @@ def create_meeting_agenda_item(
     return get_client().create_meeting_agenda_item(meeting_id, payload)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_meeting_agenda_item_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     """Get a single meeting agenda item by ID.
 
@@ -1870,7 +1871,7 @@ def get_meeting_agenda_item_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     return get_client().get_meeting_agenda_item_by_id(meeting_id, id)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_meeting_agenda_item(
     meeting_id: int,
     id: int,
@@ -1901,7 +1902,7 @@ def update_meeting_agenda_item(
     return get_client().update_meeting_agenda_item(meeting_id, id, payload)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_meeting_agenda_item(meeting_id: int, id: int) -> dict[str, Any]:
     """Delete a meeting agenda item.
 
@@ -1914,7 +1915,7 @@ def delete_meeting_agenda_item(meeting_id: int, id: int) -> dict[str, Any]:
 
 # ─── Meeting Section Tools ────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_meeting_section(
     meeting_id: int,
     title: str,
@@ -1933,7 +1934,7 @@ def create_meeting_section(
     })
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_meeting_section_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     """Get a single meeting section by ID.
 
@@ -1944,7 +1945,7 @@ def get_meeting_section_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     return get_client().get_meeting_section_by_id(meeting_id, id)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_meeting_section(
     meeting_id: int,
     id: int,
@@ -1971,7 +1972,7 @@ def update_meeting_section(
     return get_client().update_meeting_section(meeting_id, id, payload)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_meeting_section(meeting_id: int, id: int) -> dict[str, Any]:
     """Delete a meeting section.
 
@@ -1984,7 +1985,7 @@ def delete_meeting_section(meeting_id: int, id: int) -> dict[str, Any]:
 
 # ─── Recurring Meeting Tools ──────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_recurring_meetings(
     page_size: int = 20,
     offset: int = 1,
@@ -2010,7 +2011,7 @@ def list_recurring_meetings(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_recurring_meeting(
     project_id: int,
     title: str,
@@ -2052,7 +2053,7 @@ def create_recurring_meeting(
     return get_client().create_recurring_meeting(payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_recurring_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single recurring meeting by ID.
 
@@ -2062,7 +2063,7 @@ def get_recurring_meeting_by_id(id: int, include_all_fields: bool = False) -> di
     return get_client().get_recurring_meeting_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_recurring_meeting(
     id: int,
     title: str | None = None,
@@ -2099,7 +2100,7 @@ def update_recurring_meeting(
     return get_client().update_recurring_meeting(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_recurring_meeting(id: int) -> dict[str, Any]:
     """Delete a recurring meeting.
 
@@ -2111,7 +2112,7 @@ def delete_recurring_meeting(id: int) -> dict[str, Any]:
 
 # ─── Time Entry Tools ─────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_time_entries(
     page_size: int = 20,
     offset: int = 1,
@@ -2142,7 +2143,7 @@ def list_time_entries(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_time_entry(
     project_id: int,
     hours: str,
@@ -2177,7 +2178,7 @@ def create_time_entry(
     return get_client().create_time_entry(payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_time_entry_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single time entry by ID.
 
@@ -2187,7 +2188,7 @@ def get_time_entry_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     return get_client().get_time_entry_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_time_entry(
     id: int,
     hours: str | None = None,
@@ -2216,7 +2217,7 @@ def update_time_entry(
     return get_client().update_time_entry(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_time_entry(id: int) -> dict[str, Any]:
     """Delete a time entry.
 
@@ -2228,7 +2229,7 @@ def delete_time_entry(id: int) -> dict[str, Any]:
 
 # ─── News Tools ───────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def list_news(
     page_size: int = 20,
     offset: int = 1,
@@ -2254,7 +2255,7 @@ def list_news(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def create_news(
     project_id: int,
     title: str,
@@ -2280,7 +2281,7 @@ def create_news(
     return get_client().create_news(payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "openproject"})
 def get_news_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single news item by ID.
 
@@ -2290,7 +2291,7 @@ def get_news_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     return get_client().get_news_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def update_news(
     id: int,
     title: str | None = None,
@@ -2319,7 +2320,7 @@ def update_news(
     return get_client().update_news(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "openproject"})
 def delete_news(id: int) -> dict[str, Any]:
     """Delete a news item.
 
@@ -2331,7 +2332,7 @@ def delete_news(id: int) -> dict[str, Any]:
 
 # ─── Grid Tools ───────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def list_grids(
     page_size: int = 20,
     offset: int = 1,
@@ -2350,7 +2351,7 @@ def list_grids(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "openproject"})
 def create_grid(
     page: str,
     row_count: int = 3,
@@ -2377,7 +2378,7 @@ def create_grid(
     return get_client().create_grid(payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def get_grid_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single grid by ID.
 
@@ -2387,7 +2388,7 @@ def get_grid_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     return get_client().get_grid_by_id(id, include_all_fields=include_all_fields)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "openproject"})
 def update_grid(
     id: int,
     page: str | None = None,
@@ -2416,7 +2417,7 @@ def update_grid(
     return get_client().update_grid(id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "openproject"})
 def delete_grid(id: int) -> dict[str, Any]:
     """Delete a grid.
 
@@ -2428,7 +2429,7 @@ def delete_grid(id: int) -> dict[str, Any]:
 
 # ─── Job Status ────────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def get_job_status(job_id: str) -> dict[str, Any]:
     """Get the status of an async job.
 
@@ -2440,7 +2441,7 @@ def get_job_status(job_id: str) -> dict[str, Any]:
 
 # ─── Health check ─────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "openproject"})
 def health_check() -> dict[str, str]:
     """Basic server health check."""
     return {"status": "ok"}
@@ -2451,8 +2452,12 @@ def health_check() -> dict[str, str]:
 def main() -> None:
     import uvicorn
     port = MCP_SERVER_PORT
-    print(f"Starting OpenProject MCP server on port {port}")
-    uvicorn.run(mcp.http_app(), host="0.0.0.0", port=port, log_level="info")
+    if IS_STATEFUL:
+        app = mcp.http_app()
+    else:
+        app = mcp.http_app(stateless_http=True)
+    print(f"Starting OpenProject MCP server on port {port} {'stateful' if IS_STATEFUL else 'stateless'}")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 
 
 if __name__ == "__main__":
