@@ -706,8 +706,10 @@ async def async_main() -> None:
         "groups": {"list_tool": "list_groups", "del_tool": "delete_group", "match_field": "name"},
     }
 
+    def is_test_artifact(name: str) -> bool:
+        return len(name) > 8 and name.startswith("t") and name[1:9].isdigit()
+
     leak_found = False
-    rid_prefix = f"t{rid}-"
 
     for domain, cfg in leak_config.items():
         lt = cfg["list_tool"]
@@ -715,14 +717,15 @@ async def async_main() -> None:
         mf = cfg["match_field"]
         lr = await session.call_tool(lt, {"page_size": 100})
         lc = extract_content(lr)
-        for item in get_list_items(lc):
+        items = get_list_items(lc)
+        for item in items:
             if isinstance(item, dict):
                 nv = str(item.get(mf, ""))
-                if isinstance(nv, str) and nv.startswith(rid_prefix):
+                if isinstance(nv, str) and is_test_artifact(nv):
                     leak_found = True
                     art_id = item.get("id")
                     print(f"  LEAK DETECTED: {domain} id={art_id} {mf}='{nv}'")
-                    await session.call_tool(dt, {"id": art_id})
+                    tr.check_ok(await session.call_tool(dt, {"id": art_id}), "cleanup " + domain + " id=" + str(art_id), dt)
 
     if leak_found:
         tr.f("Leak Detection", "leak_scan", "Test artifacts found")
