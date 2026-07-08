@@ -46,8 +46,8 @@ class WPCreate(BaseModel):
     responsible_id: int | None = Field(default=None, description="ID of the user responsible for this work package")
     version_id: int | None = Field(default=None, description="ID of the version this work package belongs to")
     parent_id: int | None = Field(default=None, description="ID of the parent work package for hierarchy")
-    start_date: str | None = Field(default=None, description="Start date in YYYY-MM-DD format")
-    due_date: str | None = Field(default=None, description="Due date in YYYY-MM-DD format")
+    start_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
+    due_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
     estimated_time: str | None = Field(default=None, description="Estimated time in ISO 8601 duration format (e.g. PT4H)")
     duration: str | None = Field(default=None, description="Duration in ISO 8601 format (e.g. P3D for 3 days)")
     schedule_manually: bool = Field(default=False, description="If true, scheduling is manual instead of automatic")
@@ -64,8 +64,8 @@ class WPUpdate(BaseModel):
     responsible_id: int | None = Field(default=None, description="ID of the responsible user")
     version_id: int | None = Field(default=None, description="ID of the version")
     parent_id: int | None = Field(default=None, description="ID of the parent work package")
-    start_date: str | None = Field(default=None, description="Start date in YYYY-MM-DD format")
-    due_date: str | None = Field(default=None, description="Due date in YYYY-MM-DD format")
+    start_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
+    due_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
     estimated_time: str | None = Field(default=None, description="Estimated time in ISO 8601 format (e.g. PT4H)")
     duration: str | None = Field(default=None, description="Duration in ISO 8601 format (e.g. P3D)")
     schedule_manually: bool | None = Field(default=None, description="Enable manual scheduling")
@@ -102,8 +102,8 @@ class VersionCreate(BaseModel):
     description: str = Field(default="", description="Version description")
     status: str = Field(default="open", description="Status: open, locked, or closed")
     sharing: str = Field(default="none", description="Sharing mode: none, descendants, hierarchy, tree, or system")
-    start_date: str | None = Field(default=None, description="Start date in YYYY-MM-DD format")
-    end_date: str | None = Field(default=None, description="Due date in YYYY-MM-DD format")
+    start_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
+    end_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
 
 
 class VersionUpdate(BaseModel):
@@ -111,8 +111,8 @@ class VersionUpdate(BaseModel):
     description: str | None = Field(default=None, description="Version description")
     status: str | None = Field(default=None, description="Status: open, locked, or closed")
     sharing: str | None = Field(default=None, description="Sharing mode: none, descendants, hierarchy, tree, or system")
-    start_date: str | None = Field(default=None, description="Start date in YYYY-MM-DD format")
-    end_date: str | None = Field(default=None, description="Due date in YYYY-MM-DD format")
+    start_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
+    end_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
     lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
@@ -132,16 +132,16 @@ class MembershipUpdate(BaseModel):
 class MeetingCreate(BaseModel):
     title: str = Field(description="Meeting title")
     project_id: int = Field(description="ID of the project this meeting belongs to")
-    start_time: str = Field(description="Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00)")
-    end_time: str = Field(description="Use ISO 8601 format with explicit UTC offset (2026-06-22T16:00:00-04:00)")
+    start_time: str = Field(description="ISO 8601 format (2026-06-22T15:00:00-04:00)")
+    end_time: str = Field(description="ISO 8601 format (2026-06-22T16:00:00-04:00)")
     location: str = Field(default="", description="Meeting location or video call link")
     notify: bool = Field(default=True, description="Whether to notify participants")
 
 
 class MeetingUpdate(BaseModel):
     title: str | None = Field(default=None, description="Meeting title")
-    start_time: str | None = Field(default=None, description="Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00)")
-    end_time: str | None = Field(default=None, description="Use ISO 8601 format with explicit UTC offset (2026-06-22T16:00:00-04:00)")
+    start_time: str | None = Field(default=None, description="ISO 8601 format (2026-06-22T15:00:00-04:00)")
+    end_time: str | None = Field(default=None, description="ISO 8601 format (2026-06-22T16:00:00-04:00)")
     location: str | None = Field(default=None, description="Meeting location or video call link")
     notify: bool | None = Field(default=None, description="Whether to notify participants")
     lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
@@ -153,7 +153,7 @@ class TimeEntryCreate(BaseModel):
     user_id: int | None = Field(default=None, description="ID of the user who performed the work")
     activity_id: int | None = Field(default=None, description="ID of the activity type")
     hours: str = Field(description="Time spent in ISO 8601 duration format (e.g. PT2H30M)")
-    spent_on: str | None = Field(default=None, description="Date the work was performed in YYYY-MM-DD format")
+    spent_on: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
     comment: str = Field(default="", description="Comment describing the work done")
 
 
@@ -307,12 +307,12 @@ def list_work_packages(
     """List work packages (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        project_id (optional): ID of the project.
-        status_id (optional): ID of the status.
-        type_id (optional): ID of the type.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        project_id: ID of the project.
+        status_id: ID of the status.
+        type_id: ID of the type.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     filters: list[dict[str, Any]] = []
     if project_id is not None:
@@ -355,23 +355,23 @@ def create_work_package(
     """Create a work package.
 
     Args:
-        subject (required): Subject or title.
-        project_id (required): ID of the project.
-        type_id (required): ID of the type.
-        description (optional): Description text in markdown format.
-        status_id (optional): ID of the status.
-        priority_id (optional): ID of the priority.
-        assignee_id (optional): ID of the assigned user.
-        responsible_id (optional): ID of the responsible user.
-        version_id (optional): ID of the version.
-        parent_id (optional): ID of the parent work package.
-        start_date (optional): Start date in YYYY-MM-DD format.
-        due_date (optional): Due date in YYYY-MM-DD format.
-        estimated_time (optional): Estimated time in ISO 8601 duration format (e.g. PT4H).
-        duration (optional): Duration in ISO 8601 format (e.g. P3D).
-        schedule_manually (optional): Enable manual scheduling.
-        ignore_non_working_days (optional): Ignore non-working days in scheduling.
-        category_id (optional): ID of the category.
+        subject: Subject or title.
+        project_id: ID of the project.
+        type_id: ID of the type.
+        description: Description text in markdown format.
+        status_id: ID of the status.
+        priority_id: ID of the priority.
+        assignee_id: ID of the assigned user.
+        responsible_id: ID of the responsible user.
+        version_id: ID of the version.
+        parent_id: ID of the parent work package.
+        start_date: Date in YYYY-MM-DD format (2026-12-31).
+        due_date: Date in YYYY-MM-DD format (2026-12-31).
+        estimated_time: Estimated time in ISO 8601 duration format (e.g. PT4H).
+        duration: Duration in ISO 8601 format (e.g. P3D).
+        schedule_manually: Enable manual scheduling.
+        ignore_non_working_days: Ignore non-working days in scheduling.
+        category_id: ID of the category.
     """
     data = WPCreate(
         subject=subject, project_id=project_id, type_id=type_id,
@@ -390,7 +390,7 @@ def get_work_package_by_id(id: int, include_all_fields: bool = False) -> dict[st
     """Get a single work package by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_work_package_by_id(id, include_all_fields=include_all_fields)
 
@@ -418,23 +418,23 @@ def update_work_package(
     """Update a work package.
 
     Args:
-        id (required): ID of the resource.
-        subject (optional): Subject or title.
-        description (optional): Description text in markdown format.
-        status_id (optional): ID of the status.
-        priority_id (optional): ID of the priority.
-        assignee_id (optional): ID of the assigned user.
-        responsible_id (optional): ID of the responsible user.
-        version_id (optional): ID of the version.
-        parent_id (optional): ID of the parent work package.
-        start_date (optional): Start date in YYYY-MM-DD format.
-        due_date (optional): Due date in YYYY-MM-DD format.
-        estimated_time (optional): Estimated time in ISO 8601 duration format (e.g. PT4H).
-        duration (optional): Duration in ISO 8601 format (e.g. P3D).
-        schedule_manually (optional): Enable manual scheduling.
-        ignore_non_working_days (optional): Ignore non-working days in scheduling.
-        percentage_done (optional): Completion percentage (0-100).
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        subject: Subject or title.
+        description: Description text in markdown format.
+        status_id: ID of the status.
+        priority_id: ID of the priority.
+        assignee_id: ID of the assigned user.
+        responsible_id: ID of the responsible user.
+        version_id: ID of the version.
+        parent_id: ID of the parent work package.
+        start_date: Date in YYYY-MM-DD format (2026-12-31).
+        due_date: Date in YYYY-MM-DD format (2026-12-31).
+        estimated_time: Estimated time in ISO 8601 duration format (e.g. PT4H).
+        duration: Duration in ISO 8601 format (e.g. P3D).
+        schedule_manually: Enable manual scheduling.
+        ignore_non_working_days: Ignore non-working days in scheduling.
+        percentage_done: Completion percentage (0-100).
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if subject is not None:
@@ -478,7 +478,7 @@ def delete_work_package(id: int) -> dict[str, Any]:
     """Delete a work package.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_work_package(id)
 
@@ -492,9 +492,9 @@ def get_work_package_activities(
     """List activities (comments/journal entries) on a work package.
 
     Args:
-        id (required): ID of the resource.
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
+        id: ID of the resource.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
     """
     return get_client().get_work_package_activities(id, page_size, offset)
 
@@ -504,8 +504,8 @@ def add_work_package_comment(id: int, comment: str) -> dict[str, Any]:
     """Add a comment to a work package.
 
     Args:
-        id (required): ID of the resource.
-        comment (required): Comment text.
+        id: ID of the resource.
+        comment: Comment text.
     """
     return get_client().add_work_package_comment(id, comment)
 
@@ -515,7 +515,7 @@ def get_work_package_relations(id: int) -> dict[str, Any]:
     """List relations for a work package.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_work_package_relations(id)
 
@@ -529,9 +529,9 @@ def create_work_package_relation(
     """Create a relation from a work package to another.
 
     Args:
-        id (required): ID of the resource.
-        target_id (required): ID of the target work package for the relation.
-        relation_type (optional): Type of the relation.
+        id: ID of the resource.
+        target_id: ID of the target work package for the relation.
+        relation_type: Type of the relation.
     """
     return get_client().create_work_package_relation(
         id,
@@ -544,7 +544,7 @@ def get_work_package_watchers(id: int) -> dict[str, Any]:
     """List watchers of a work package.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_work_package_watchers(id)
 
@@ -554,8 +554,8 @@ def add_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     """Add a watcher to a work package.
 
     Args:
-        id (required): ID of the resource.
-        user_id (required): ID of the user.
+        id: ID of the resource.
+        user_id: ID of the user.
     """
     return get_client().add_work_package_watcher(id, user_id)
 
@@ -565,8 +565,8 @@ def remove_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     """Remove a watcher from a work package.
 
     Args:
-        id (required): ID of the resource.
-        user_id (required): ID of the user.
+        id: ID of the resource.
+        user_id: ID of the user.
     """
     return get_client().remove_work_package_watcher(id, user_id)
 
@@ -580,9 +580,9 @@ def list_work_package_attachments(
     """List attachment metadata for a work package.
 
     Args:
-        id (required): ID of the resource.
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
+        id: ID of the resource.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
     """
     data = get_client().list_work_package_attachments(id, page_size, offset)
     return {"items": json_to_toon(data)}
@@ -597,9 +597,9 @@ def list_projects(
     """List projects (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_projects(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -621,14 +621,14 @@ def create_project(
     """Create a project.
 
     Args:
-        name (required): Name.
-        identifier (required): Unique URL-safe identifier.
-        description (optional): Description text in markdown format.
-        public (optional): Public visibility flag.
-        active (optional): Active flag.
-        status_id (optional): ID of the status.
-        parent_id (optional): ID of the parent work package.
-        status_explanation (optional): Explanation of the project status.
+        name: Name.
+        identifier: Unique URL-safe identifier.
+        description: Description text in markdown format.
+        public: Public visibility flag.
+        active: Active flag.
+        status_id: ID of the status.
+        parent_id: ID of the parent work package.
+        status_explanation: Explanation of the project status.
     """
     links: dict[str, Any] = {}
     if parent_id is not None:
@@ -654,7 +654,7 @@ def get_project_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     """Get a single project by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_project_by_id(id, include_all_fields=include_all_fields)
 
@@ -674,15 +674,15 @@ def update_project(
     """Update a project.
 
     Args:
-        id (required): ID of the resource.
-        name (optional): Name.
-        description (optional): Description text in markdown format.
-        public (optional): Public visibility flag.
-        active (optional): Active flag.
-        status_id (optional): ID of the status.
-        parent_id (optional): ID of the parent work package.
-        status_explanation (optional): Explanation of the project status.
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        name: Name.
+        description: Description text in markdown format.
+        public: Public visibility flag.
+        active: Active flag.
+        status_id: ID of the status.
+        parent_id: ID of the parent work package.
+        status_explanation: Explanation of the project status.
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if name is not None:
@@ -709,7 +709,7 @@ def delete_project(id: int) -> dict[str, Any]:
     """Delete a project.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_project(id)
 
@@ -723,9 +723,9 @@ def copy_project(
     """Copy a project.
 
     Args:
-        id (required): ID of the resource.
-        name (optional): Name.
-        identifier (optional): Unique URL-safe identifier.
+        id: ID of the resource.
+        name: Name.
+        identifier: Unique URL-safe identifier.
     """
     payload: dict[str, Any] = {}
     if name is not None:
@@ -746,9 +746,9 @@ def list_versions(
     """List versions (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_versions(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -769,13 +769,13 @@ def create_version(
     """Create a version.
 
     Args:
-        name (required): Name.
-        project_id (required): ID of the project.
-        description (optional): Description text in markdown format.
-        status (optional): Status value.
-        sharing (optional): Sharing mode.
-        start_date (optional): Start date in YYYY-MM-DD format.
-        end_date (optional): End date in YYYY-MM-DD format.
+        name: Name.
+        project_id: ID of the project.
+        description: Description text in markdown format.
+        status: Status value.
+        sharing: Sharing mode.
+        start_date: Date in YYYY-MM-DD format (2026-12-31).
+        end_date: Date in YYYY-MM-DD format (2026-12-31).
     """
     payload: dict[str, Any] = {
         "name": name,
@@ -797,7 +797,7 @@ def get_version_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     """Get a single version by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_version_by_id(id, include_all_fields=include_all_fields)
 
@@ -816,14 +816,14 @@ def update_version(
     """Update a version.
 
     Args:
-        id (required): ID of the resource.
-        name (optional): Name.
-        description (optional): Description text in markdown format.
-        status (optional): Status value.
-        sharing (optional): Sharing mode.
-        start_date (optional): Start date in YYYY-MM-DD format.
-        end_date (optional): End date in YYYY-MM-DD format.
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        name: Name.
+        description: Description text in markdown format.
+        status: Status value.
+        sharing: Sharing mode.
+        start_date: Date in YYYY-MM-DD format (2026-12-31).
+        end_date: Date in YYYY-MM-DD format (2026-12-31).
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if name is not None:
@@ -848,7 +848,7 @@ def delete_version(id: int) -> dict[str, Any]:
     """Delete a version.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_version(id)
 
@@ -865,10 +865,10 @@ def list_memberships(
     """List memberships (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        project_id (optional): ID of the project.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        project_id: ID of the project.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     filters = None
     if project_id is not None:
@@ -890,9 +890,9 @@ def create_membership(
     """Create a membership.
 
     Args:
-        project_id (required): ID of the project.
-        principal_id (required): ID of the user or group.
-        role_ids (required): List of role IDs.
+        project_id: ID of the project.
+        principal_id: ID of the user or group.
+        role_ids: List of role IDs.
     """
     data = MembershipCreate(project_id=project_id, principal_id=principal_id, role_ids=role_ids)
     return get_client().create_membership(_build_membership_payload(data))
@@ -903,7 +903,7 @@ def get_membership_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     """Get a single membership by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_membership_by_id(id, include_all_fields=include_all_fields)
 
@@ -919,11 +919,11 @@ def update_membership(
     """Update a membership.
 
     Args:
-        id (required): ID of the resource.
-        project_id (optional): ID of the project.
-        principal_id (optional): ID of the user or group.
-        role_ids (optional): List of role IDs.
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        project_id: ID of the project.
+        principal_id: ID of the user or group.
+        role_ids: List of role IDs.
+        lock_version: Lock version for optimistic locking.
     """
     links: dict[str, Any] = {}
     if project_id is not None:
@@ -943,7 +943,7 @@ def delete_membership(id: int) -> dict[str, Any]:
     """Delete a membership.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_membership(id)
 
@@ -960,10 +960,10 @@ def list_users(
     """List users (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        filters (optional): Filters.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        filters: Filters.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_users(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
@@ -977,7 +977,7 @@ def get_user_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single user by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_user_by_id(id, include_all_fields=include_all_fields)
 
@@ -995,13 +995,13 @@ def create_user(
     """Create a user.
 
     Args:
-        login (required): Login username.
-        first_name (required): First name.
-        last_name (required): Last name.
-        email (required): Email address.
-        password (required): Password.
-        language (optional): Language code.
-        admin (optional): Admin flag.
+        login: Login username.
+        first_name: First name.
+        last_name: Last name.
+        email: Email address.
+        password: Password.
+        language: Language code.
+        admin: Admin flag.
     """
     return get_client().create_user({
         "login": login, "firstName": first_name, "lastName": last_name,
@@ -1021,12 +1021,12 @@ def update_user(
     """Update a user.
 
     Args:
-        id (required): ID of the resource.
-        first_name (optional): First name.
-        last_name (optional): Last name.
-        email (optional): Email address.
-        language (optional): Language code.
-        admin (optional): Admin flag.
+        id: ID of the resource.
+        first_name: First name.
+        last_name: Last name.
+        email: Email address.
+        language: Language code.
+        admin: Admin flag.
     """
     payload: dict[str, Any] = {}
     if first_name is not None:
@@ -1047,7 +1047,7 @@ def delete_user(id: int) -> dict[str, Any]:
     """Delete a user.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_user(id)
 
@@ -1063,9 +1063,9 @@ def list_groups(
     """List groups (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_groups(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -1078,7 +1078,7 @@ def get_group_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]
     """Get a single group by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_group_by_id(id, include_all_fields=include_all_fields)
 
@@ -1091,8 +1091,8 @@ def create_group(
     """Create a group.
 
     Args:
-        name (required): Name.
-        member_ids (optional): List of member user IDs.
+        name: Name.
+        member_ids: List of member user IDs.
     """
     payload: dict[str, Any] = {"name": name}
     if member_ids:
@@ -1111,9 +1111,9 @@ def update_group(
     """Update a group.
 
     Args:
-        id (required): ID of the resource.
-        name (optional): Name.
-        member_ids (optional): List of member user IDs.
+        id: ID of the resource.
+        name: Name.
+        member_ids: List of member user IDs.
     """
     payload: dict[str, Any] = {}
     if name is not None:
@@ -1130,7 +1130,7 @@ def delete_group(id: int) -> dict[str, Any]:
     """Delete a group.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_group(id)
 
@@ -1146,9 +1146,9 @@ def list_statuses(
     """List statuses (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_statuses(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -1161,7 +1161,7 @@ def get_status_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any
     """Get a single status by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_status_by_id(id, include_all_fields=include_all_fields)
 
@@ -1177,9 +1177,9 @@ def list_types(
     """List types (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_types(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -1192,7 +1192,7 @@ def get_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single type by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_type_by_id(id, include_all_fields=include_all_fields)
 
@@ -1208,9 +1208,9 @@ def list_priorities(
     """List priorities (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_priorities(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -1223,7 +1223,7 @@ def get_priority_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     """Get a single priority by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_priority_by_id(id, include_all_fields=include_all_fields)
 
@@ -1239,9 +1239,9 @@ def list_roles(
     """List roles (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_roles(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -1254,7 +1254,7 @@ def get_role_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single role by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_role_by_id(id, include_all_fields=include_all_fields)
 
@@ -1271,10 +1271,10 @@ def list_principals(
     """List principals (users and groups, paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        filters (optional): Filters.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        filters: Filters.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_principals(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
@@ -1288,7 +1288,7 @@ def get_principal_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
     """Get a single principal by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_principal_by_id(id, include_all_fields=include_all_fields)
 
@@ -1300,7 +1300,7 @@ def get_category_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     """Get a single category by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_category_by_id(id, include_all_fields=include_all_fields)
 
@@ -1314,9 +1314,9 @@ def list_project_categories(
     """List categories for a project.
 
     Args:
-        project_id (required): ID of the project.
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
+        project_id: ID of the project.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
     """
     data = get_client().list_project_categories(project_id, page_size, offset)
     return {"items": json_to_toon(data)}
@@ -1327,7 +1327,7 @@ def get_wiki_page_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
     """Get a single wiki page by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_wiki_page_by_id(id, include_all_fields=include_all_fields)
 
@@ -1339,7 +1339,7 @@ def get_budget_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any
     """Get a single budget by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_budget_by_id(id, include_all_fields=include_all_fields)
 
@@ -1353,9 +1353,9 @@ def list_project_budgets(
     """List budgets for a project.
 
     Args:
-        project_id (required): ID of the project.
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
+        project_id: ID of the project.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
     """
     data = get_client().list_project_budgets(project_id, page_size, offset)
     return {"items": json_to_toon(data)}
@@ -1364,7 +1364,7 @@ def get_cost_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
     """Get a single cost type by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_cost_type_by_id(id, include_all_fields=include_all_fields)
 
@@ -1381,10 +1381,10 @@ def list_notifications(
     """List notifications (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        filters (optional): Filters.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        filters: Filters.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_notifications(
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
@@ -1398,7 +1398,7 @@ def get_notification_by_id(id: int, include_all_fields: bool = False) -> dict[st
     """Get a single notification by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_notification_by_id(id, include_all_fields=include_all_fields)
 
@@ -1417,12 +1417,12 @@ def list_days(
     """List calendar days with working/non-working status.
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        working (optional): Filter by working day status.
-        date_from (optional): Start date for range filter in YYYY-MM-DD format.
-        date_to (optional): End date for range filter in YYYY-MM-DD format.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        working: Filter by working day status.
+        date_from: Date in YYYY-MM-DD format (2026-12-31).
+        date_to: Date in YYYY-MM-DD format (2026-12-31).
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     import json as _json
     filters: list[dict[str, Any]] = []
@@ -1449,11 +1449,11 @@ def list_non_working_days(
     """List non-working days (holidays).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        date_from (optional): Start date for range filter in YYYY-MM-DD format.
-        date_to (optional): End date for range filter in YYYY-MM-DD format.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        date_from: Date in YYYY-MM-DD format (2026-12-31).
+        date_to: Date in YYYY-MM-DD format (2026-12-31).
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     import json as _json
     filters: list[dict[str, Any]] = []
@@ -1472,7 +1472,7 @@ def get_non_working_day_by_date(date: str) -> dict[str, Any]:
     """Get a single non-working day by date.
 
     Args:
-        date (required): Date in ISO 8601 format YYYY-MM-DD in YYYY-MM-DD format.
+        date: Date in YYYY-MM-DD format (2026-12-31).
     """
     return get_client().get_non_working_day_by_date(date)
 
@@ -1486,9 +1486,9 @@ def list_week_days(
     """List configured week days (Mon-Sun with working flag).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_week_days(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -1501,7 +1501,7 @@ def get_week_day_by_number(day: int) -> dict[str, Any]:
     """Get a single week day by number (1=Monday, 7=Sunday).
 
     Args:
-        day (required): Day.
+        day: Day.
     """
     return get_client().get_week_day_by_number(day)
 
@@ -1513,7 +1513,7 @@ def get_attachment_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     """Get attachment metadata by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_attachment_by_id(id, include_all_fields=include_all_fields)
 
@@ -1530,10 +1530,10 @@ def list_documents(
     """List documents (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        project_id (optional): ID of the project.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        project_id: ID of the project.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     import json as _json
     filters = None
@@ -1551,7 +1551,7 @@ def get_document_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     """Get a single document by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_document_by_id(id, include_all_fields=include_all_fields)
 
@@ -1566,10 +1566,10 @@ def update_document(
     """Update a document.
 
     Args:
-        id (required): ID of the resource.
-        title (optional): Title.
-        description (optional): Description text in markdown format.
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        title: Title.
+        description: Description text in markdown format.
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if title is not None:
@@ -1588,7 +1588,7 @@ def list_emoji_reactions(activity_id: int) -> dict[str, Any]:
     """List emoji reactions on an activity.
 
     Args:
-        activity_id (required): ID of the activity.
+        activity_id: ID of the activity.
     """
     data = get_client().list_emoji_reactions(activity_id)
     return {"items": json_to_toon(data)}
@@ -1597,8 +1597,8 @@ def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
     """Toggle an emoji reaction on an activity (add or remove).
 
     Args:
-        activity_id (required): ID of the activity.
-        reaction (required): Emoji reaction string.
+        activity_id: ID of the activity.
+        reaction: Emoji reaction string.
     """
     return get_client().toggle_emoji_reaction(activity_id, reaction)
 
@@ -1619,9 +1619,9 @@ def create_reminder(
     """Create a reminder on a work package.
 
     Args:
-        work_package_id (required): ID of the work package.
-        remind_at (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
-        note (optional): Note text.
+        work_package_id: ID of the work package.
+        remind_at: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        note: Note text.
     """
     payload: dict[str, Any] = {"remindAt": remind_at}
     if note:
@@ -1638,9 +1638,9 @@ def list_reminders(
     """List reminders (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_reminders(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -1658,10 +1658,10 @@ def update_reminder(
     """Update a reminder.
 
     Args:
-        id (required): ID of the resource.
-        work_package_id (optional): ID of the work package.
-        minutes_before (optional): Minutes before to trigger reminder.
-        note (optional): Note text.
+        id: ID of the resource.
+        work_package_id: ID of the work package.
+        minutes_before: Minutes before to trigger reminder.
+        note: Note text.
     """
     payload: dict[str, Any] = {}
     if work_package_id is not None:
@@ -1678,7 +1678,7 @@ def delete_reminder(id: int) -> dict[str, Any]:
     """Delete a reminder.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_reminder(id)
 
@@ -1695,10 +1695,10 @@ def list_meetings(
     """List meetings (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        project_id (optional): ID of the project.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        project_id: ID of the project.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     import json as _json
     filters = None
@@ -1723,12 +1723,12 @@ def create_meeting(
     """Create a meeting.
 
     Args:
-        title (required): Title.
-        project_id (required): ID of the project.
-        start_time (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
-        end_time (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
-        location (optional): Location or video call link.
-        notify (optional): Notify participants.
+        title: Title.
+        project_id: ID of the project.
+        start_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        end_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        location: Location or video call link.
+        notify: Notify participants.
     """
     return get_client().create_meeting({
         "title": title,
@@ -1745,7 +1745,7 @@ def get_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     """Get a single meeting by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_meeting_by_id(id, include_all_fields=include_all_fields)
 
@@ -1763,13 +1763,13 @@ def update_meeting(
     """Update a meeting.
 
     Args:
-        id (required): ID of the resource.
-        title (optional): Title.
-        start_time (optional): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
-        end_time (optional): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
-        location (optional): Location or video call link.
-        notify (optional): Notify participants.
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        title: Title.
+        start_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        end_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        location: Location or video call link.
+        notify: Notify participants.
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if title is not None:
@@ -1792,7 +1792,7 @@ def delete_meeting(id: int) -> dict[str, Any]:
     """Delete a meeting.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_meeting(id)
 
@@ -1802,7 +1802,7 @@ def list_meeting_agenda_items(meeting_id: int) -> dict[str, Any]:
     """List agenda items for a meeting.
 
     Args:
-        meeting_id (required): ID of the meeting.
+        meeting_id: ID of the meeting.
     """
     data = get_client().list_meeting_agenda_items(meeting_id)
     return {"items": json_to_toon(data)}
@@ -1811,7 +1811,7 @@ def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
     """List sections for a meeting.
 
     Args:
-        meeting_id (required): ID of the meeting.
+        meeting_id: ID of the meeting.
     """
     data = get_client().list_meeting_sections(meeting_id)
     return {"items": json_to_toon(data)}
@@ -1828,11 +1828,11 @@ def create_meeting_agenda_item(
     """Create a meeting agenda item.
 
     Args:
-        meeting_id (required): ID of the meeting.
-        item_type (optional): Type of agenda item.
-        title (optional): Title.
-        duration_in_minutes (optional): Duration in minutes.
-        notes (optional): Notes text in markdown format.
+        meeting_id: ID of the meeting.
+        item_type: Type of agenda item.
+        title: Title.
+        duration_in_minutes: Duration in minutes.
+        notes: Notes text in markdown format.
     """
     payload: dict[str, Any] = {
         "itemType": item_type,
@@ -1851,8 +1851,8 @@ def get_meeting_agenda_item_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     """Get a single meeting agenda item by ID.
 
     Args:
-        meeting_id (required): ID of the meeting.
-        id (required): ID of the resource.
+        meeting_id: ID of the meeting.
+        id: ID of the resource.
     """
     return get_client().get_meeting_agenda_item_by_id(meeting_id, id)
 
@@ -1869,12 +1869,12 @@ def update_meeting_agenda_item(
     """Update a meeting agenda item.
 
     Args:
-        meeting_id (required): ID of the meeting.
-        id (required): ID of the resource.
-        title (optional): Title.
-        duration_in_minutes (optional): Duration in minutes.
-        notes (optional): Notes text in markdown format.
-        lock_version (optional): Lock version for optimistic locking.
+        meeting_id: ID of the meeting.
+        id: ID of the resource.
+        title: Title.
+        duration_in_minutes: Duration in minutes.
+        notes: Notes text in markdown format.
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if title is not None:
@@ -1893,8 +1893,8 @@ def delete_meeting_agenda_item(meeting_id: int, id: int) -> dict[str, Any]:
     """Delete a meeting agenda item.
 
     Args:
-        meeting_id (required): ID of the meeting.
-        id (required): ID of the resource.
+        meeting_id: ID of the meeting.
+        id: ID of the resource.
     """
     return get_client().delete_meeting_agenda_item(meeting_id, id)
 
@@ -1910,9 +1910,9 @@ def create_meeting_section(
     """Create a meeting section.
 
     Args:
-        meeting_id (required): ID of the meeting.
-        title (required): Title.
-        position (optional): Position index.
+        meeting_id: ID of the meeting.
+        title: Title.
+        position: Position index.
     """
     return get_client().create_meeting_section(meeting_id, {
         "title": title,
@@ -1925,8 +1925,8 @@ def get_meeting_section_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     """Get a single meeting section by ID.
 
     Args:
-        meeting_id (required): ID of the meeting.
-        id (required): ID of the resource.
+        meeting_id: ID of the meeting.
+        id: ID of the resource.
     """
     return get_client().get_meeting_section_by_id(meeting_id, id)
 
@@ -1942,11 +1942,11 @@ def update_meeting_section(
     """Update a meeting section.
 
     Args:
-        meeting_id (required): ID of the meeting.
-        id (required): ID of the resource.
-        title (optional): Title.
-        position (optional): Position index.
-        lock_version (optional): Lock version for optimistic locking.
+        meeting_id: ID of the meeting.
+        id: ID of the resource.
+        title: Title.
+        position: Position index.
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if title is not None:
@@ -1963,8 +1963,8 @@ def delete_meeting_section(meeting_id: int, id: int) -> dict[str, Any]:
     """Delete a meeting section.
 
     Args:
-        meeting_id (required): ID of the meeting.
-        id (required): ID of the resource.
+        meeting_id: ID of the meeting.
+        id: ID of the resource.
     """
     return get_client().delete_meeting_section(meeting_id, id)
 
@@ -1981,10 +1981,10 @@ def list_recurring_meetings(
     """List recurring meetings (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        project_id (optional): ID of the project.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        project_id: ID of the project.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     import json as _json
     filters = None
@@ -2012,15 +2012,15 @@ def create_recurring_meeting(
     """Create a recurring meeting.
 
     Args:
-        project_id (required): ID of the project.
-        title (required): Title.
-        frequency (required): Frequency of recurrence.
-        start_time (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
-        end_time (required): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
-        days (optional): List of days.
-        interval_value (optional): Interval count.
-        count_limit (optional): Maximum number of occurrences.
-        end_date (optional): End date in YYYY-MM-DD format.
+        project_id: ID of the project.
+        title: Title.
+        frequency: Frequency of recurrence.
+        start_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        end_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        days: List of days.
+        interval_value: Interval count.
+        count_limit: Maximum number of occurrences.
+        end_date: Date in YYYY-MM-DD format (2026-12-31).
     """
     payload: dict[str, Any] = {
         "title": title,
@@ -2044,7 +2044,7 @@ def get_recurring_meeting_by_id(id: int, include_all_fields: bool = False) -> di
     """Get a single recurring meeting by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_recurring_meeting_by_id(id, include_all_fields=include_all_fields)
 
@@ -2062,13 +2062,13 @@ def update_recurring_meeting(
     """Update a recurring meeting.
 
     Args:
-        id (required): ID of the resource.
-        title (optional): Title.
-        frequency (optional): Frequency of recurrence.
-        start_time (optional): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
-        end_time (optional): Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00).
-        interval_value (optional): Interval count.
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        title: Title.
+        frequency: Frequency of recurrence.
+        start_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        end_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        interval_value: Interval count.
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if title is not None:
@@ -2091,7 +2091,7 @@ def delete_recurring_meeting(id: int) -> dict[str, Any]:
     """Delete a recurring meeting.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_recurring_meeting(id)
 
@@ -2109,11 +2109,11 @@ def list_time_entries(
     """List time entries (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        project_id (optional): ID of the project.
-        work_package_id (optional): ID of the work package.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        project_id: ID of the project.
+        work_package_id: ID of the work package.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     import json as _json
     filters: list[dict[str, Any]] = []
@@ -2141,12 +2141,12 @@ def create_time_entry(
     """Create a time entry.
 
     Args:
-        project_id (required): ID of the project.
-        hours (required): Time spent in ISO 8601 duration format (e.g. PT2H30M).
-        work_package_id (optional): ID of the work package.
-        activity_id (optional): ID of the activity.
-        spent_on (optional): Date the work was performed in YYYY-MM-DD format.
-        comment (optional): Comment text.
+        project_id: ID of the project.
+        hours: Time spent in ISO 8601 duration format (e.g. PT2H30M).
+        work_package_id: ID of the work package.
+        activity_id: ID of the activity.
+        spent_on: Date in YYYY-MM-DD format (2026-12-31).
+        comment: Comment text.
     """
     links: dict[str, Any] = {"project": {"href": f"/api/v3/projects/{project_id}"}}
     if work_package_id is not None:
@@ -2169,7 +2169,7 @@ def get_time_entry_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     """Get a single time entry by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_time_entry_by_id(id, include_all_fields=include_all_fields)
 
@@ -2185,11 +2185,11 @@ def update_time_entry(
     """Update a time entry.
 
     Args:
-        id (required): ID of the resource.
-        hours (optional): Time spent in ISO 8601 duration format (e.g. PT2H30M).
-        spent_on (optional): Date the work was performed in YYYY-MM-DD format.
-        comment (optional): Comment text.
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        hours: Time spent in ISO 8601 duration format (e.g. PT2H30M).
+        spent_on: Date in YYYY-MM-DD format (2026-12-31).
+        comment: Comment text.
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if hours is not None:
@@ -2208,7 +2208,7 @@ def delete_time_entry(id: int) -> dict[str, Any]:
     """Delete a time entry.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_time_entry(id)
 
@@ -2225,10 +2225,10 @@ def list_news(
     """List news items (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        project_id (optional): ID of the project.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        project_id: ID of the project.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     import json as _json
     filters = None
@@ -2251,10 +2251,10 @@ def create_news(
     """Create a news item.
 
     Args:
-        project_id (required): ID of the project.
-        title (required): Title.
-        summary (optional): Short summary.
-        description (optional): Description text in markdown format.
+        project_id: ID of the project.
+        title: Title.
+        summary: Short summary.
+        description: Description text in markdown format.
     """
     payload: dict[str, Any] = {
         "title": title,
@@ -2272,7 +2272,7 @@ def get_news_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single news item by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_news_by_id(id, include_all_fields=include_all_fields)
 
@@ -2288,11 +2288,11 @@ def update_news(
     """Update a news item.
 
     Args:
-        id (required): ID of the resource.
-        title (optional): Title.
-        summary (optional): Short summary.
-        description (optional): Description text in markdown format.
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        title: Title.
+        summary: Short summary.
+        description: Description text in markdown format.
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if title is not None:
@@ -2311,7 +2311,7 @@ def delete_news(id: int) -> dict[str, Any]:
     """Delete a news item.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_news(id)
 
@@ -2327,9 +2327,9 @@ def list_grids(
     """List grids (paginated).
 
     Args:
-        page_size (optional): Number of items per page.
-        offset (optional): Page offset for pagination.
-        include_all_fields (optional): Include all fields in response.
+        page_size: Number of items per page.
+        offset: Page offset for pagination.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_grids(
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
@@ -2347,10 +2347,10 @@ def create_grid(
     """Create a grid.
 
     Args:
-        page (required): Page identifier.
-        row_count (optional): Number of rows.
-        column_count (optional): Column Count.
-        scope_href (optional): Scope URL for the grid.
+        page: Page identifier.
+        row_count: Number of rows.
+        column_count: Number of columns.
+        scope_href: Scope URL for the grid.
     """
     payload: dict[str, Any] = {
         "name": page,
@@ -2369,7 +2369,7 @@ def get_grid_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single grid by ID.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().get_grid_by_id(id, include_all_fields=include_all_fields)
 
@@ -2385,11 +2385,11 @@ def update_grid(
     """Update a grid.
 
     Args:
-        id (required): ID of the resource.
-        page (optional): Page identifier.
-        row_count (optional): Number of rows.
-        widgets (optional): List of grid widget configurations.
-        lock_version (optional): Lock version for optimistic locking.
+        id: ID of the resource.
+        page: Page identifier.
+        row_count: Number of rows.
+        widgets: List of grid widget configurations.
+        lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
     if page is not None:
@@ -2408,7 +2408,7 @@ def delete_grid(id: int) -> dict[str, Any]:
     """Delete a grid.
 
     Args:
-        id (required): ID of the resource.
+        id: ID of the resource.
     """
     return get_client().delete_grid(id)
 
@@ -2420,7 +2420,7 @@ def get_job_status(job_id: str) -> dict[str, Any]:
     """Get the status of an async job.
 
     Args:
-        job_id (required): ID of the async job.
+        job_id: ID of the async job.
     """
     return get_client().get_job_status(job_id)
 
@@ -2429,10 +2429,7 @@ def get_job_status(job_id: str) -> dict[str, Any]:
 
 @mcp.tool()
 def health_check() -> dict[str, str]:
-    """Basic server health check.
-
-    Args:
-    """
+    """Basic server health check."""
     return {"status": "ok"}
 
 
