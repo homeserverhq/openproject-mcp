@@ -360,8 +360,8 @@ async def async_main() -> None:
     tr.check_ok(await session.call_tool("get_non_working_day_by_date", {"date": nwd_date}), "get non-working day", "get_non_working_day_by_date")
 
     # Fixed data tests
-    tr.check_ok(await session.call_tool("get_week_day_by_number", {"day": 1}), "get_week_day_mon", "get_week_day_by_number")
-    tr.check_ok(await session.call_tool("get_week_day_by_number", {"day": 7}), "get_week_day_sun", "get_week_day_by_number")
+    tr.check_ok(await session.call_tool("get_week_day_by_number", {"day": "monday"}), "get_week_day_mon", "get_week_day_by_number")
+    tr.check_ok(await session.call_tool("get_week_day_by_number", {"day": "sunday"}), "get_week_day_sun", "get_week_day_by_number")
     tr.check_ok(await session.call_tool("get_wiki_page_by_id", {"id": 1}), "get_wiki_page_by_id", "get_wiki_page_by_id")
     tr.check_ok(await session.call_tool("get_attachment_by_id", {"id": 1}), "get_attachment_by_id", "get_attachment_by_id")
 
@@ -673,7 +673,7 @@ async def async_main() -> None:
     r = tr.check_ok(await session.call_tool("create_recurring_meeting", {
         "project_id": persistent_project_id, "title": rmn, "frequency": "weekly",
         "start_time": "2026-07-01T10:00:00+00:00", "end_time": "2026-07-01T11:00:00+00:00",
-        "days": [1],
+        "days": ["monday"],
     }), "create", "create_recurring_meeting")
     rmid = extract_content(r).get("id")
 

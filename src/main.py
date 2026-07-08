@@ -50,8 +50,8 @@ class WPCreate(BaseModel):
     due_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
     estimated_time: str | None = Field(default=None, description="Estimated time in ISO 8601 duration format (e.g. PT4H)")
     duration: str | None = Field(default=None, description="Duration in ISO 8601 format (e.g. P3D for 3 days)")
-    schedule_manually: bool = Field(default=False, description="If true, scheduling is manual instead of automatic")
-    ignore_non_working_days: bool = Field(default=False, description="If true, ignore non-working days in scheduling")
+    schedule_manually: bool = Field(default=False, description="true or false")
+    ignore_non_working_days: bool = Field(default=False, description="true or false")
     category_id: int | None = Field(default=None, description="ID of the category")
 
 
@@ -68,8 +68,8 @@ class WPUpdate(BaseModel):
     due_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
     estimated_time: str | None = Field(default=None, description="Estimated time in ISO 8601 format (e.g. PT4H)")
     duration: str | None = Field(default=None, description="Duration in ISO 8601 format (e.g. P3D)")
-    schedule_manually: bool | None = Field(default=None, description="Enable manual scheduling")
-    ignore_non_working_days: bool | None = Field(default=None, description="Ignore non-working days")
+    schedule_manually: bool | None = Field(default=None, description="true or false")
+    ignore_non_working_days: bool | None = Field(default=None, description="true or false")
     percentage_done: int | None = Field(default=None, description="Completion percentage (0-100)")
     lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
@@ -78,9 +78,9 @@ class ProjectCreate(BaseModel):
     name: str = Field(description="Project name")
     identifier: str = Field(description="Unique URL-safe project identifier")
     description: str = Field(default="", description="Project description")
-    public: bool = Field(default=True, description="Whether the project is publicly visible")
-    active: bool = Field(default=True, description="Whether the project is active")
-    status_id: str | None = Field(default=None, description="Status code (e.g. 'on_track', 'at_risk', 'off_track')")
+    public: bool = Field(default=True, description="true or false (Default: true)")
+    active: bool = Field(default=True, description="true or false (Default: true)")
+    status_id: str | None = Field(default=None, description="Project status: on_track, at_risk, off_track, not_started, finished, or discontinued")
     parent_id: int | None = Field(default=None, description="ID of the parent project")
     status_explanation: str = Field(default="", description="Explanation of the project status")
 
@@ -88,9 +88,9 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: str | None = Field(default=None, description="Project name")
     description: str | None = Field(default=None, description="Project description")
-    public: bool | None = Field(default=None, description="Whether the project is publicly visible")
-    active: bool | None = Field(default=None, description="Whether the project is active")
-    status_id: str | None = Field(default=None, description="Status code (e.g. 'on_track', 'at_risk', 'off_track')")
+    public: bool | None = Field(default=None, description="true or false")
+    active: bool | None = Field(default=None, description="true or false")
+    status_id: str | None = Field(default=None, description="Project status: on_track, at_risk, off_track, not_started, finished, or discontinued")
     parent_id: int | None = Field(default=None, description="ID of the parent project")
     status_explanation: str | None = Field(default=None, description="Explanation of the project status")
     lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
@@ -100,8 +100,8 @@ class VersionCreate(BaseModel):
     name: str = Field(description="Version name")
     project_id: int = Field(description="ID of the project this version belongs to")
     description: str = Field(default="", description="Version description")
-    status: str = Field(default="open", description="Status: open, locked, or closed")
-    sharing: str = Field(default="none", description="Sharing mode: none, descendants, hierarchy, tree, or system")
+    status: str = Field(default="open", description="Status: open, locked, or closed (Default: open)")
+    sharing: str = Field(default="none", description="Sharing mode: none, descendants, hierarchy, tree, or system (Default: none)")
     start_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
     end_date: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
 
@@ -135,7 +135,7 @@ class MeetingCreate(BaseModel):
     start_time: str = Field(description="ISO 8601 format (2026-06-22T15:00:00-04:00)")
     end_time: str = Field(description="ISO 8601 format (2026-06-22T16:00:00-04:00)")
     location: str = Field(default="", description="Meeting location or video call link")
-    notify: bool = Field(default=True, description="Whether to notify participants")
+    notify: bool = Field(default=True, description="true or false (Default: true)")
 
 
 class MeetingUpdate(BaseModel):
@@ -143,7 +143,7 @@ class MeetingUpdate(BaseModel):
     start_time: str | None = Field(default=None, description="ISO 8601 format (2026-06-22T15:00:00-04:00)")
     end_time: str | None = Field(default=None, description="ISO 8601 format (2026-06-22T16:00:00-04:00)")
     location: str | None = Field(default=None, description="Meeting location or video call link")
-    notify: bool | None = Field(default=None, description="Whether to notify participants")
+    notify: bool | None = Field(default=None, description="true or false")
     lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
 
@@ -151,7 +151,7 @@ class TimeEntryCreate(BaseModel):
     project_id: int = Field(description="ID of the project")
     work_package_id: int | None = Field(default=None, description="ID of the work package this time is logged against")
     user_id: int | None = Field(default=None, description="ID of the user who performed the work")
-    activity_id: int | None = Field(default=None, description="ID of the activity type")
+    activity_id: int | None = Field(default=None, description="ID of the activity type (e.g. Management, Development, Testing)")
     hours: str = Field(description="Time spent in ISO 8601 duration format (e.g. PT2H30M)")
     spent_on: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
     comment: str = Field(default="", description="Comment describing the work done")
@@ -160,8 +160,8 @@ class TimeEntryCreate(BaseModel):
 class TimeEntryUpdate(BaseModel):
     project_id: int | None = Field(default=None, description="ID of the project")
     work_package_id: int | None = Field(default=None, description="ID of the work package")
-    hours: str | None = Field(default=None, description="Time spent in ISO 8601 duration format")
-    spent_on: str | None = Field(default=None, description="Date in YYYY-MM-DD format")
+    hours: str | None = Field(default=None, description="Time spent in ISO 8601 duration format (e.g. PT2H30M)")
+    spent_on: str | None = Field(default=None, description="Date in YYYY-MM-DD format (2026-12-31)")
     comment: str | None = Field(default=None, description="Comment describing the work done")
     lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
@@ -181,12 +181,12 @@ class NewsUpdate(BaseModel):
 
 
 class GridCreate(BaseModel):
-    page: str = Field(description="Grid page identifier (e.g. 'overview', 'project-overview')")
-    row_count: int = Field(default=5, description="Number of rows in the grid")
+    page: str = Field(description="Page identifier (e.g. overview, project-overview, my_page)")
+    row_count: int = Field(default=5, description="Number of rows in the grid (Default: 5)")
 
 
 class GridUpdate(BaseModel):
-    page: str | None = Field(default=None, description="Grid page identifier")
+    page: str | None = Field(default=None, description="Page identifier (e.g. overview, project-overview, my_page)")
     row_count: int | None = Field(default=None, description="Number of rows in the grid")
     lock_version: int | None = Field(default=None, description="Lock version for optimistic locking")
 
@@ -194,7 +194,7 @@ class GridUpdate(BaseModel):
 class GridWidget(BaseModel):
     row: int = Field(description="Row position (1-indexed)")
     column: int = Field(description="Column position (1-indexed)")
-    identifier: str = Field(description="Grid widget identifier (e.g. 'work_packages_table', 'news', 'documents')")
+    identifier: str = Field(description="Widget type: work_packages_table, work_packages_graph, work_packages_calendar, project_description, project_status, subprojects, time_entries_list, members, news, documents, or custom_text")
     start_row: int | None = Field(default=None, description="Start row for widget span")
     end_row: int | None = Field(default=None, description="End row for widget span")
     start_column: int | None = Field(default=None, description="Start column for widget span")
@@ -202,13 +202,24 @@ class GridWidget(BaseModel):
 
 
 class FilterCondition(BaseModel):
-    field: str = Field(description="Field name to filter on (e.g. 'status_id', 'project_id', 'type_id', 'name', 'email')")
-    operator: str = Field(description="Operator: '=' (equals), '!' (not), '>=' (gte), '<=' (lte), '<>d' (date range), '**' (any), '~' (contains), '!~' (not contains)")
+    field: str = Field(description="Field name to filter on (e.g. status_id, project_id, type_id, name, email)")
+    operator: str = Field(description="Operator: equals, not, gte, lte, date_range, any, contains, or not_contains")
     values: list[str] = Field(description="Filter values as strings (single or multiple)")
 
 
 class FilterExpression(BaseModel):
     conditions: list[FilterCondition] = Field(description="List of filter conditions to apply")
+
+
+_DAY_NAMES: dict[str, int] = {
+    "monday": 1, "tuesday": 2, "wednesday": 3, "thursday": 4,
+    "friday": 5, "saturday": 6, "sunday": 7,
+}
+
+_OPERATOR_MAP: dict[str, str] = {
+    "equals": "=", "not": "!", "gte": ">=", "lte": "<=",
+    "date_range": "<>d", "any": "**", "contains": "~", "not_contains": "!~",
+}
 
 
 # ─── Helper ───────────────────────────────────────────────────────────
@@ -268,7 +279,7 @@ def _build_filter_string(expr: FilterExpression | None) -> str | None:
         return None
     filters_list: list[dict[str, Any]] = []
     for c in expr.conditions:
-        filters_list.append({c.field: {"operator": c.operator, "values": c.values}})
+        filters_list.append({c.field: {"operator": _OPERATOR_MAP.get(c.operator, c.operator), "values": c.values}})
     import json as _json
     return _json.dumps(filters_list)
 
@@ -307,7 +318,7 @@ def list_work_packages(
     """List work packages (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         project_id: ID of the project.
         status_id: ID of the status.
@@ -369,8 +380,8 @@ def create_work_package(
         due_date: Date in YYYY-MM-DD format (2026-12-31).
         estimated_time: Estimated time in ISO 8601 duration format (e.g. PT4H).
         duration: Duration in ISO 8601 format (e.g. P3D).
-        schedule_manually: Enable manual scheduling.
-        ignore_non_working_days: Ignore non-working days in scheduling.
+        schedule_manually: true or false.
+        ignore_non_working_days: true or false.
         category_id: ID of the category.
     """
     data = WPCreate(
@@ -431,8 +442,8 @@ def update_work_package(
         due_date: Date in YYYY-MM-DD format (2026-12-31).
         estimated_time: Estimated time in ISO 8601 duration format (e.g. PT4H).
         duration: Duration in ISO 8601 format (e.g. P3D).
-        schedule_manually: Enable manual scheduling.
-        ignore_non_working_days: Ignore non-working days in scheduling.
+        schedule_manually: true or false.
+        ignore_non_working_days: true or false.
         percentage_done: Completion percentage (0-100).
         lock_version: Lock version for optimistic locking.
     """
@@ -493,7 +504,7 @@ def get_work_package_activities(
 
     Args:
         id: ID of the resource.
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
     """
     return get_client().get_work_package_activities(id, page_size, offset)
@@ -531,7 +542,7 @@ def create_work_package_relation(
     Args:
         id: ID of the resource.
         target_id: ID of the target work package for the relation.
-        relation_type: Type of the relation.
+        relation_type: relates, precedes, follows, blocks, blocked, duplicates, duplicated, includes, partof, requires, required, parent, or child (Default: relates).
     """
     return get_client().create_work_package_relation(
         id,
@@ -581,7 +592,7 @@ def list_work_package_attachments(
 
     Args:
         id: ID of the resource.
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
     """
     data = get_client().list_work_package_attachments(id, page_size, offset)
@@ -597,7 +608,7 @@ def list_projects(
     """List projects (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -624,8 +635,8 @@ def create_project(
         name: Name.
         identifier: Unique URL-safe identifier.
         description: Description text in markdown format.
-        public: Public visibility flag.
-        active: Active flag.
+        public: true or false (Default: true).
+        active: true or false (Default: true).
         status_id: ID of the status.
         parent_id: ID of the parent work package.
         status_explanation: Explanation of the project status.
@@ -677,8 +688,8 @@ def update_project(
         id: ID of the resource.
         name: Name.
         description: Description text in markdown format.
-        public: Public visibility flag.
-        active: Active flag.
+        public: true or false.
+        active: true or false.
         status_id: ID of the status.
         parent_id: ID of the parent work package.
         status_explanation: Explanation of the project status.
@@ -746,7 +757,7 @@ def list_versions(
     """List versions (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -772,8 +783,8 @@ def create_version(
         name: Name.
         project_id: ID of the project.
         description: Description text in markdown format.
-        status: Status value.
-        sharing: Sharing mode.
+        status: Status: open, locked, or closed (Default: open).
+        sharing: Sharing mode: none, descendants, hierarchy, tree, or system (Default: none).
         start_date: Date in YYYY-MM-DD format (2026-12-31).
         end_date: Date in YYYY-MM-DD format (2026-12-31).
     """
@@ -819,8 +830,8 @@ def update_version(
         id: ID of the resource.
         name: Name.
         description: Description text in markdown format.
-        status: Status value.
-        sharing: Sharing mode.
+        status: Status: open, locked, or closed.
+        sharing: Sharing mode: none, descendants, hierarchy, tree, or system.
         start_date: Date in YYYY-MM-DD format (2026-12-31).
         end_date: Date in YYYY-MM-DD format (2026-12-31).
         lock_version: Lock version for optimistic locking.
@@ -865,7 +876,7 @@ def list_memberships(
     """List memberships (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
@@ -960,9 +971,9 @@ def list_users(
     """List users (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
-        filters: Filters.
+        filters: FilterExpression with conditions (field, operator, values).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_users(
@@ -1000,8 +1011,8 @@ def create_user(
         last_name: Last name.
         email: Email address.
         password: Password.
-        language: Language code.
-        admin: Admin flag.
+        language: Language code (Default: en).
+        admin: true or false.
     """
     return get_client().create_user({
         "login": login, "firstName": first_name, "lastName": last_name,
@@ -1026,7 +1037,7 @@ def update_user(
         last_name: Last name.
         email: Email address.
         language: Language code.
-        admin: Admin flag.
+        admin: true or false.
     """
     payload: dict[str, Any] = {}
     if first_name is not None:
@@ -1063,7 +1074,7 @@ def list_groups(
     """List groups (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -1146,7 +1157,7 @@ def list_statuses(
     """List statuses (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -1177,7 +1188,7 @@ def list_types(
     """List types (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -1208,7 +1219,7 @@ def list_priorities(
     """List priorities (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -1239,7 +1250,7 @@ def list_roles(
     """List roles (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -1271,9 +1282,9 @@ def list_principals(
     """List principals (users and groups, paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
-        filters: Filters.
+        filters: FilterExpression with conditions (field, operator, values).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_principals(
@@ -1315,7 +1326,7 @@ def list_project_categories(
 
     Args:
         project_id: ID of the project.
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
     """
     data = get_client().list_project_categories(project_id, page_size, offset)
@@ -1354,7 +1365,7 @@ def list_project_budgets(
 
     Args:
         project_id: ID of the project.
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
     """
     data = get_client().list_project_budgets(project_id, page_size, offset)
@@ -1381,9 +1392,9 @@ def list_notifications(
     """List notifications (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
-        filters: Filters.
+        filters: FilterExpression with conditions (field, operator, values).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = get_client().list_notifications(
@@ -1417,9 +1428,9 @@ def list_days(
     """List calendar days with working/non-working status.
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
-        working: Filter by working day status.
+        working: true or false (filter by working day status).
         date_from: Date in YYYY-MM-DD format (2026-12-31).
         date_to: Date in YYYY-MM-DD format (2026-12-31).
         include_all_fields: Default False (common fields only). Set True for all fields.
@@ -1449,7 +1460,7 @@ def list_non_working_days(
     """List non-working days (holidays).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         date_from: Date in YYYY-MM-DD format (2026-12-31).
         date_to: Date in YYYY-MM-DD format (2026-12-31).
@@ -1486,7 +1497,7 @@ def list_week_days(
     """List configured week days (Mon-Sun with working flag).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -1497,13 +1508,13 @@ def list_week_days(
 
 
 @mcp.tool()
-def get_week_day_by_number(day: int) -> dict[str, Any]:
-    """Get a single week day by number (1=Monday, 7=Sunday).
+def get_week_day_by_number(day: str) -> dict[str, Any]:
+    """Get a single week day by name.
 
     Args:
-        day: Day.
+        day: Day of the week (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, or Sunday).
     """
-    return get_client().get_week_day_by_number(day)
+    return get_client().get_week_day_by_number(_DAY_NAMES[day.lower()])
 
 
 # ─── Attachment Tools (metadata only) ────────────────────────────────
@@ -1530,7 +1541,7 @@ def list_documents(
     """List documents (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
@@ -1638,7 +1649,7 @@ def list_reminders(
     """List reminders (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -1660,7 +1671,7 @@ def update_reminder(
     Args:
         id: ID of the resource.
         work_package_id: ID of the work package.
-        minutes_before: Minutes before to trigger reminder.
+        minutes_before: Minutes before the event to trigger the reminder.
         note: Note text.
     """
     payload: dict[str, Any] = {}
@@ -1695,7 +1706,7 @@ def list_meetings(
     """List meetings (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
@@ -1728,7 +1739,7 @@ def create_meeting(
         start_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
         end_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
         location: Location or video call link.
-        notify: Notify participants.
+        notify: true or false (Default: true).
     """
     return get_client().create_meeting({
         "title": title,
@@ -1768,7 +1779,7 @@ def update_meeting(
         start_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
         end_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
         location: Location or video call link.
-        notify: Notify participants.
+        notify: true or false.
         lock_version: Lock version for optimistic locking.
     """
     payload: dict[str, Any] = {}
@@ -1829,7 +1840,7 @@ def create_meeting_agenda_item(
 
     Args:
         meeting_id: ID of the meeting.
-        item_type: Type of agenda item.
+        item_type: simple or work_package (Default: simple).
         title: Title.
         duration_in_minutes: Duration in minutes.
         notes: Notes text in markdown format.
@@ -1981,7 +1992,7 @@ def list_recurring_meetings(
     """List recurring meetings (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
@@ -2004,7 +2015,7 @@ def create_recurring_meeting(
     frequency: str,
     start_time: str,
     end_time: str,
-    days: list[int] | None = None,
+    days: list[str] | None = None,
     interval_value: int = 1,
     count_limit: int | None = None,
     end_date: str | None = None,
@@ -2014,11 +2025,11 @@ def create_recurring_meeting(
     Args:
         project_id: ID of the project.
         title: Title.
-        frequency: Frequency of recurrence.
+        frequency: daily, working_days, weekly, monthly_day_of_month, or monthly_nth_weekday.
         start_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
         end_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
-        days: List of days.
-        interval_value: Interval count.
+        days: Days of the week (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, or Sunday).
+        interval_value: Every Nth occurrence (Default: 1).
         count_limit: Maximum number of occurrences.
         end_date: Date in YYYY-MM-DD format (2026-12-31).
     """
@@ -2031,7 +2042,7 @@ def create_recurring_meeting(
         "intervalValue": interval_value,
     }
     if days is not None:
-        payload["days"] = days
+        payload["days"] = [_DAY_NAMES[d.lower()] for d in days]
     if count_limit is not None:
         payload["countLimit"] = count_limit
     if end_date is not None:
@@ -2064,7 +2075,7 @@ def update_recurring_meeting(
     Args:
         id: ID of the resource.
         title: Title.
-        frequency: Frequency of recurrence.
+        frequency: daily, working_days, weekly, monthly_day_of_month, or monthly_nth_weekday.
         start_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
         end_time: ISO 8601 format (2026-06-22T15:00:00-04:00).
         interval_value: Interval count.
@@ -2109,7 +2120,7 @@ def list_time_entries(
     """List time entries (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         project_id: ID of the project.
         work_package_id: ID of the work package.
@@ -2225,7 +2236,7 @@ def list_news(
     """List news items (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
@@ -2327,7 +2338,7 @@ def list_grids(
     """List grids (paginated).
 
     Args:
-        page_size: Number of items per page.
+        page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
@@ -2347,9 +2358,9 @@ def create_grid(
     """Create a grid.
 
     Args:
-        page: Page identifier.
-        row_count: Number of rows.
-        column_count: Number of columns.
+        page: Page identifier (e.g. overview, project-overview, my_page).
+        row_count: Number of rows (Default: 3).
+        column_count: Number of columns (Default: 2).
         scope_href: Scope URL for the grid.
     """
     payload: dict[str, Any] = {
@@ -2386,7 +2397,7 @@ def update_grid(
 
     Args:
         id: ID of the resource.
-        page: Page identifier.
+        page: Page identifier (e.g. overview, project-overview, my_page).
         row_count: Number of rows.
         widgets: List of grid widget configurations.
         lock_version: Lock version for optimistic locking.
