@@ -762,7 +762,10 @@ class OpenProjectClient:
         return data
 
     def update_reminder(self, id: int, payload: dict[str, Any], include_all_fields: bool = False) -> dict[str, Any]:
-        return self._patch(f"/reminders/{id}", json=payload)
+        data = self._patch(f"/reminders/{id}", json=payload)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["reminder"])
+        return data
 
     def delete_reminder(self, id: int) -> dict[str, Any]:
         self._delete(f"/reminders/{id}")

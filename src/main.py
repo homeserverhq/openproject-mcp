@@ -906,7 +906,7 @@ def create_membership(
         role_ids: List of role IDs.
     """
     data = MembershipCreate(project_id=project_id, principal_id=principal_id, role_ids=role_ids)
-    return get_client().create_membership(_build_membership_payload(data))
+    return get_client().create_membership(_build_membership_payload(data), ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -1017,7 +1017,7 @@ def create_user(
     return get_client().create_user({
         "login": login, "firstName": first_name, "lastName": last_name,
         "email": email, "password": password, "language": language, "admin": admin,
-    })
+    }, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
@@ -1479,13 +1479,14 @@ def list_non_working_days(
 
 
 @mcp.tool()
-def get_non_working_day_by_date(date: str) -> dict[str, Any]:
+def get_non_working_day_by_date(date: str, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single non-working day by date.
 
     Args:
         date: Date in YYYY-MM-DD format (2026-12-31).
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    return get_client().get_non_working_day_by_date(date)
+    return get_client().get_non_working_day_by_date(date, include_all_fields=include_all_fields)
 
 
 @mcp.tool()
@@ -1508,13 +1509,14 @@ def list_week_days(
 
 
 @mcp.tool()
-def get_week_day_by_number(day: str) -> dict[str, Any]:
+def get_week_day_by_number(day: str, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single week day by name.
 
     Args:
         day: Day of the week (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, or Sunday).
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    return get_client().get_week_day_by_number(_DAY_NAMES[day.lower()])
+    return get_client().get_week_day_by_number(_DAY_NAMES[day.lower()], include_all_fields=include_all_fields)
 
 
 # ─── Attachment Tools (metadata only) ────────────────────────────────
@@ -1748,7 +1750,7 @@ def create_meeting(
         "end_time": end_time,
         "location": location,
         "notify": notify,
-    })
+    }, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool()
