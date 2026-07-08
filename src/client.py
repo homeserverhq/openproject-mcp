@@ -25,6 +25,24 @@ def _normalize_datetime(value: str) -> str:
     return value
 
 
+_DATETIME_RE = re.compile(
+    r'^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(?:\.\d+)?Z$'
+)
+
+
+def _postprocess_dates(data: Any) -> Any:
+    """Recursively walk response data and convert Z-suffix datetimes to explicit offset ISO 8601."""
+    if isinstance(data, dict):
+        return {k: _postprocess_dates(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [_postprocess_dates(item) for item in data]
+    if isinstance(data, str):
+        m = _DATETIME_RE.match(data)
+        if m:
+            return f"{m.group(1)}T{m.group(2)}+00:00"
+    return data
+
+
 ALLOW_ALL_AGGREGATE = os.environ.get("ALLOW_ALL_AGGREGATE", "false").lower() == "true"
 
 COMMON_FIELDS: dict[str, set[str]] = {
@@ -144,7 +162,7 @@ class OpenProjectClient:
         if resp.status_code in (202, 204):
             return {}
         resp.raise_for_status()
-        return resp.json()
+        return _postprocess_dates(resp.json())
 
     def _get(
         self, path: str, params: dict[str, Any] | None = None
