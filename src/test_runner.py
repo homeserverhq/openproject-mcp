@@ -1,15 +1,14 @@
-"""OpenProject MCP end-to-end test harness.
+"""OpenProject MCP flat test harness.
 
-Every tool is tested unconditionally. No SKIPPED status.
-Only PASS or FAIL. Tests exist to find flaws in main.py and client.py.
+Every test runs unconditionally. No SKIP, no if/else in test flow.
+Only PASS or FAIL. Assertion logic lives in helper functions.
+Unexpected exceptions crash the runner immediately.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-
-from toon_mcp import toon_to_json
 import os
 import random
 import string
@@ -18,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
+from toon_mcp import toon_to_json
 
 
 MCP_SERVER_PORT = os.environ.get("MCP_SERVER_PORT", "6893")
@@ -108,37 +108,37 @@ class MCPSession:
         await self.client.aclose()
 
 
-# ─── Test helpers ─────────────────────────────────────────────────────
+# ─── Data helpers ─────────────────────────────────────────────────────
 
 
 def is_error(result: dict[str, Any]) -> str | None:
-    if "error" in result:
-        return json.dumps(result["error"])
+    err = result.get("error")
+    if err:
+        return json.dumps(err)
     if result.get("isError"):
         return str(result.get("content", result))
     return None
 
 
-def extract_content(result: dict[str, Any]) -> Any:
-    if "error" in result:
-        return {"error": result["error"]}
-    content = result.get("content", [])
+def extract_content(result: dict[str, Any]) -> dict[str, Any]:
+    """Extract text content from a tool result. Always returns a dict."""
+    content = (result or {}).get("content", [])
     if isinstance(content, list):
         for item in content:
-            if item.get("type") == "text":
-                text = item["text"]
+            if isinstance(item, dict) and item.get("type") == "text":
+                text = item.get("text", "")
                 try:
-                    return json.loads(text)
+                    parsed = json.loads(text)
+                    return parsed if isinstance(parsed, dict) else {}
                 except (json.JSONDecodeError, TypeError):
-                    return text
-    return result
+                    return {}
+    return {}
 
 
 TOON_WRAP_KEYS = ("items", "results", "rows", "tree")
 
 
 def _decode_toon_val(val: Any) -> Any:
-    """Decode a TOON-encoded string or pass through raw lists."""
     if isinstance(val, list):
         return val
     if isinstance(val, str):
@@ -191,12 +191,25 @@ def find_match(data: Any, match_field: str, value: str) -> Any | None:
     return None
 
 
+def first_field(data: Any, field: str) -> Any:
+    items = get_list_items(data)
+    if items and isinstance(items[0], dict):
+        return items[0].get(field)
+    return None
+
+
+def find_project_role(data: Any) -> int | None:
+    for item in get_list_items(data):
+        name = str((item or {}).get("name", "")).lower()
+        if name in ("member", "project admin", "reader"):
+            return (item or {}).get("id")
+    return None
+
+
 # ─── TestResult with honest pass/fail ─────────────────────────────────
 
 
 class TestResult:
-    SERVER_ERR = ["internal server error", "connection", "name or service not known", "timeout"]
-
     def __init__(self) -> None:
         self.passed: list[tuple[str, str]] = []
         self.failed: list[tuple[str, str, str]] = []
@@ -209,53 +222,27 @@ class TestResult:
         self.failed.append((label, tool, err))
         print(f"  FAIL: {tool} — {label} — {err.split(chr(10))[0][:120]}")
 
-    def is_server_err(self, err: str) -> bool:
-        return any(k in err.lower() for k in self.SERVER_ERR)
-
-    async def run(self, session: MCPSession, label: str, tool: str, args: dict[str, Any] | None = None,
-                  expect: str = "success") -> dict[str, Any]:
-        """Run a tool test.
-
-        expect='success': error is FAIL
-        expect='error':   must get 'not found' (verify-delete)
-        expect='any':     non-server errors are PASS (read-only tools where data may not exist)
-        """
-        try:
-            result = await session.call_tool(tool, args)
-        except Exception as e:
-            self.f(label, tool, str(e))
-            return {}
-        err = is_error(result)
-        if expect == "success":
-            if err:
-                self.f(label, tool, err)
-            else:
-                self.p(label, tool)
-        elif expect == "error":
-            if err and "not found" in err.lower():
-                self.p(label, tool)
-            elif err:
-                self.f(label, tool, f"Expected not found but got: {err}")
-            else:
-                self.f(label, tool, "Expected not found but resource exists")
-        else:
-            if err and self.is_server_err(err):
-                self.f(label, tool, err)
-            else:
-                self.p(label, tool)
-        return result
-
-    async def call(self, session: MCPSession, label: str, tool: str, args: dict[str, Any] | None = None
-                   ) -> dict[str, Any]:
-        """Execute a tool call without auto pass/fail (caller handles result)."""
-        try:
-            return await session.call_tool(tool, args)
-        except Exception as e:
-            self.f(label, tool, str(e))
-            return {}
-
     def print_phase(self, phase_label: str) -> None:
         print(f"\n## {phase_label}")
+
+    def check_ok(self, result: dict[str, Any], label: str, tool: str) -> dict[str, Any]:
+        err = is_error(result)
+        if err:
+            self.f(label, tool, err)
+        else:
+            self.p(label, tool)
+        return result
+
+    def check_verdel(self, result: dict[str, Any], label: str, tool: str) -> dict[str, Any]:
+        """Assert tool returned 'not found' error (verify-delete)."""
+        err = is_error(result)
+        if err and "not found" in err.lower():
+            self.p(label, tool)
+        elif err:
+            self.f(label, tool, f"Expected 'not found' but got: {err}")
+        else:
+            self.f(label, tool, "Expected 'not found' but resource exists")
+        return result
 
     def report(self) -> None:
         total = len(self.passed) + len(self.failed)
@@ -278,9 +265,6 @@ class TestResult:
                 print(f"- **Error**: {err[:200]}")
             print()
 
-    def __len__(self) -> int:
-        return len(self.passed) + len(self.failed)
-
 
 # ─── Main test runner ─────────────────────────────────────────────────
 
@@ -299,451 +283,411 @@ async def async_main() -> None:
     print(f"# Run ID: {rid}")
 
     session = MCPSession(API_KEY)
-    try:
-        await session.initialize()
-    except Exception as e:
-        print(f"FATAL: Could not connect to MCP server: {e}")
-        sys.exit(1)
+    await session.initialize()
 
     tools_result = await session.list_tools()
-    tools = tools_result.get("tools", [])
-    tool_names = {t["name"] for t in tools}
+    tool_list = tools_result.get("tools", [])
     print(f"\n## Phase 0 — Initialization")
-    print(f"  Discovered {len(tools)} tools")
+    print(f"  Discovered {len(tool_list)} tools")
 
     tr = TestResult()
 
     # ══════════════════════════════════════════════════════════════════
-    # Phase 1: Reference data — list + get using discovered IDs
+    # Phase 1: Reference Data
     # ══════════════════════════════════════════════════════════════════
     tr.print_phase("Phase 1 — Reference Data")
 
-    seed: dict[str, Any] = {}
-    store: dict[str, Any] = {}
+    status_id = None
+    type_id = None
+    priority_id = None
+    role_id = None
+    user_id = None
+    principal_id = None
 
-    _SINGULAR = {
-        "Statuses": "status", "Types": "type", "Priorities": "priority",
-        "Roles": "role", "Users": "user", "Principals": "principal",
-    }
+    r = tr.check_ok(await session.call_tool("list_statuses", {}), "Statuses", "list_statuses")
+    status_id = get_first_id(extract_content(r))
+    tr.check_ok(await session.call_tool("get_status_by_id", {"id": status_id}), "Statuses", "get_status_by_id")
 
-    ref_domains = [
-        ("Statuses", "list_statuses", "get_status_by_id"),
-        ("Types", "list_types", "get_type_by_id"),
-        ("Priorities", "list_priorities", "get_priority_by_id"),
-        ("Roles", "list_roles", "get_role_by_id"),
-        ("Users", "list_users", "get_user_by_id"),
-        ("Principals", "list_principals", "get_principal_by_id"),
-    ]
+    r = tr.check_ok(await session.call_tool("list_types", {}), "Types", "list_types")
+    type_id = get_first_id(extract_content(r))
+    tr.check_ok(await session.call_tool("get_type_by_id", {"id": type_id}), "Types", "get_type_by_id")
 
-    for label, list_tool, get_tool in ref_domains:
-        result = await session.call_tool(list_tool, {})
-        err = is_error(result)
-        if err:
-            tr.f(label, list_tool, err)
-            continue
-        tr.p(label, list_tool)
-        content = extract_content(result)
-        first_id = get_first_id(content)
-        seed[_SINGULAR[label] + "_id"] = first_id
-        await tr.run(session, label, get_tool, {"id": first_id})
+    r = tr.check_ok(await session.call_tool("list_priorities", {}), "Priorities", "list_priorities")
+    priority_id = get_first_id(extract_content(r))
+    tr.check_ok(await session.call_tool("get_priority_by_id", {"id": priority_id}), "Priorities", "get_priority_by_id")
 
-    # Well-known reference data IDs
-    sid_status = seed.get("status_id")
-    sid_type = seed.get("type_id")
-    sid_priority = seed.get("priority_id")
-    sid_user = seed.get("user_id")
+    r = tr.check_ok(await session.call_tool("list_roles", {"page_size": 50}), "Roles", "list_roles")
+    role_id = find_project_role(extract_content(r))
+    tr.check_ok(await session.call_tool("get_role_by_id", {"id": role_id}), "Roles", "get_role_by_id")
 
-    # Discover a project role for membership tests
-    sid_role = None
-    rr = await session.call_tool("list_roles", {"page_size": 50})
-    rc = extract_content(rr)
-    for role_item in get_list_items(rc):
-        if isinstance(role_item, dict):
-            rname = str(role_item.get("name", "")).lower()
-            if rname in ("member", "project admin", "reader"):
-                sid_role = role_item.get("id")
-                break
+    r = tr.check_ok(await session.call_tool("list_users", {}), "Users", "list_users")
+    user_id = get_first_id(extract_content(r))
+    tr.check_ok(await session.call_tool("get_user_by_id", {"id": user_id}), "Users", "get_user_by_id")
 
-    # Create persistent project — used by ALL subsequent tests, deleted at end
+    r = tr.check_ok(await session.call_tool("list_principals", {}), "Principals", "list_principals")
+    principal_id = get_first_id(extract_content(r))
+    tr.check_ok(await session.call_tool("get_principal_by_id", {"id": principal_id}), "Principals", "get_principal_by_id")
+
+    # Create persistent project — deleted at end
     ppn = make_name("base")
-    pp_result = await tr.run(session, "create base project", "create_project", {
+    r = tr.check_ok(await session.call_tool("create_project", {
         "name": ppn, "identifier": ppn, "description": "Persistent base project", "public": True, "active": True,
-    })
-    pp_content = extract_content(pp_result)
-    ppid = pp_content.get("id") if isinstance(pp_content, dict) else None
-    store["persistent_project_id"] = ppid
-    store["project_ident"] = ppn if ppid else None
-
-    # Sequential probe for wiki page IDs (try 1-5, no list endpoint exists)
-    for wid in range(1, 6):
-        wr = await session.call_tool("get_wiki_page_by_id", {"id": wid})
-        if not is_error(wr):
-            seed["wikipages_id"] = wid
-            break
-
-    # Sequential probe for attachment IDs (try 1-5, no list endpoint exists)
-    for aid in range(1, 6):
-        ar = await session.call_tool("get_attachment_by_id", {"id": aid})
-        if not is_error(ar):
-            seed["attachments_id"] = aid
-            break
+    }), "create base project", "create_project")
+    persistent_project_id = extract_content(r).get("id")
 
     # ══════════════════════════════════════════════════════════════════
-    # Phase 2: Read-only data (may be empty — expect='any' for get)
+    # Phase 2: Read-Only Data
     # ══════════════════════════════════════════════════════════════════
     tr.print_phase("Phase 2 — Read-Only Data")
 
-    # ── List tools (always expect success) ──
-    list_only_tests = [
-        ("list_notifications", "list_notifications", {}, "success"),
-        ("list_documents", "list_documents", {}, "success"),
-        ("list_reminders", "list_reminders", {}, "success"),
-        ("list_days", "list_days", {}, "success"),
-        ("list_non_working_days", "list_non_working_days", {}, "success"),
-        ("list_week_days", "list_week_days", {}, "success"),
-        ("health_check", "health_check", {}, "success"),
-    ]
-    for label, tool, args, exp in list_only_tests:
-        await tr.run(session, label, tool, args, expect=exp)
-
-    # ── Get tools using discovered IDs from list results ──
-    async def _get_id(label: str, list_tool: str, list_args: dict[str, Any] | None = None) -> int | None:
-        lr = await session.call_tool(list_tool, list_args or {})
-        lc = extract_content(lr)
-        items = get_list_items(lc)
-        if items and isinstance(items[0], dict):
-            return items[0].get("id")
-        return None
-
-    doc_id = await _get_id("documents", "list_documents")
-    await tr.run(session, "get document", "get_document_by_id", {"id": doc_id})
-    await tr.run(session, "update document", "update_document", {"id": doc_id})
-
-    # Discover a non-working day date and test get_non_working_day_by_date
+    document_id = None
     nwd_date = None
-    nwd_r = await session.call_tool("list_non_working_days", {"page_size": 20})
-    nwd_c = extract_content(nwd_r)
-    nwd_items = get_list_items(nwd_c)
-    if nwd_items and isinstance(nwd_items[0], dict):
-        nwd_date = nwd_items[0].get("date")
-    await tr.run(session, "get non-working day", "get_non_working_day_by_date", {"date": nwd_date})
 
-    # Fixed: weekday, paginated, and date range tests
-    fixed_tests = [
-        ("get_week_day_mon", "get_week_day_by_number", {"day": 1}, "success"),
-        ("get_week_day_sun", "get_week_day_by_number", {"day": 7}, "success"),
-        ("get_wiki_page_by_id", "get_wiki_page_by_id", {"id": seed.get("wikipages_id")}, "success"),
-        ("get_attachment_by_id", "get_attachment_by_id", {"id": seed.get("attachments_id")}, "success"),
-        ("list_projects_paged", "list_projects", {"page_size": 5, "offset": 1}, "success"),
-        ("list_work_packages_paged", "list_work_packages", {"page_size": 5}, "success"),
-        ("list_versions_paged", "list_versions", {"page_size": 5}, "success"),
-        ("list_memberships_paged", "list_memberships", {"page_size": 5}, "success"),
-        ("list_meetings_paged", "list_meetings", {"page_size": 5}, "success"),
-        ("list_time_entries_paged", "list_time_entries", {"page_size": 5}, "success"),
-        ("list_news_paged", "list_news", {"page_size": 5}, "success"),
-        ("list_grids_paged", "list_grids", {"page_size": 5}, "success"),
-        ("list_users_paged", "list_users", {"page_size": 5}, "success"),
-        ("list_groups_paged", "list_groups", {"page_size": 5}, "success"),
-        ("list_principals_paged", "list_principals", {"page_size": 5}, "success"),
-        ("get_days_by_range", "list_days", {"date_from": "2026-06-01", "date_to": "2026-06-30"}, "success"),
-        ("list_non_working_empty", "list_non_working_days", {"date_from": "2026-06-01", "date_to": "2026-06-01"}, "success"),
-    ]
-    for label, tool, args, exp in fixed_tests:
-        await tr.run(session, label, tool, args, expect=exp)
+    tr.check_ok(await session.call_tool("list_notifications", {}), "list_notifications", "list_notifications")
+    r = tr.check_ok(await session.call_tool("list_documents", {}), "list_documents", "list_documents")
+    document_id = get_first_id(extract_content(r))
+    tr.check_ok(await session.call_tool("list_reminders", {}), "list_reminders", "list_reminders")
+    tr.check_ok(await session.call_tool("list_days", {}), "list_days", "list_days")
+    r = tr.check_ok(await session.call_tool("list_non_working_days", {}), "list_non_working_days", "list_non_working_days")
+    first_nwd = get_first_id(extract_content(r))
+    tr.check_ok(await session.call_tool("list_week_days", {}), "list_week_days", "list_week_days")
+    tr.check_ok(await session.call_tool("health_check", {}), "health_check", "health_check")
+
+    tr.check_ok(await session.call_tool("get_document_by_id", {"id": document_id}), "get document", "get_document_by_id")
+    tr.check_ok(await session.call_tool("update_document", {"id": document_id}), "update document", "update_document")
+
+    nwd_date = first_field(extract_content(r), "date")
+    tr.check_ok(await session.call_tool("get_non_working_day_by_date", {"date": nwd_date}), "get non-working day", "get_non_working_day_by_date")
+
+    # Fixed data tests
+    tr.check_ok(await session.call_tool("get_week_day_by_number", {"day": 1}), "get_week_day_mon", "get_week_day_by_number")
+    tr.check_ok(await session.call_tool("get_week_day_by_number", {"day": 7}), "get_week_day_sun", "get_week_day_by_number")
+    tr.check_ok(await session.call_tool("get_wiki_page_by_id", {"id": 1}), "get_wiki_page_by_id", "get_wiki_page_by_id")
+    tr.check_ok(await session.call_tool("get_attachment_by_id", {"id": 1}), "get_attachment_by_id", "get_attachment_by_id")
+
+    tr.check_ok(await session.call_tool("get_cost_type_by_id", {"id": 1}), "get cost type", "get_cost_type_by_id")
+
+    # Paginated list tests
+    tr.check_ok(await session.call_tool("list_projects", {"page_size": 5, "offset": 1}), "list_projects_paged", "list_projects")
+    tr.check_ok(await session.call_tool("list_work_packages", {"page_size": 5}), "list_work_packages_paged", "list_work_packages")
+    tr.check_ok(await session.call_tool("list_versions", {"page_size": 5}), "list_versions_paged", "list_versions")
+    tr.check_ok(await session.call_tool("list_memberships", {"page_size": 5}), "list_memberships_paged", "list_memberships")
+    tr.check_ok(await session.call_tool("list_meetings", {"page_size": 5}), "list_meetings_paged", "list_meetings")
+    tr.check_ok(await session.call_tool("list_time_entries", {"page_size": 5}), "list_time_entries_paged", "list_time_entries")
+    tr.check_ok(await session.call_tool("list_news", {"page_size": 5}), "list_news_paged", "list_news")
+    tr.check_ok(await session.call_tool("list_grids", {"page_size": 5}), "list_grids_paged", "list_grids")
+    tr.check_ok(await session.call_tool("list_users", {"page_size": 5}), "list_users_paged", "list_users")
+    tr.check_ok(await session.call_tool("list_groups", {"page_size": 5}), "list_groups_paged", "list_groups")
+    tr.check_ok(await session.call_tool("list_principals", {"page_size": 5}), "list_principals_paged", "list_principals")
+
+    # Date range tests
+    tr.check_ok(await session.call_tool("list_days", {"date_from": "2026-06-01", "date_to": "2026-06-30"}), "get_days_by_range", "list_days")
+    tr.check_ok(await session.call_tool("list_non_working_days", {"date_from": "2026-06-01", "date_to": "2026-06-01"}), "list_non_working_empty", "list_non_working_days")
 
     # ══════════════════════════════════════════════════════════════════
-    # Phase 3: CRUD cycles — fully self-contained
+    # Phase 3: CRUD Cycles
     # ══════════════════════════════════════════════════════════════════
     tr.print_phase("Phase 3 — CRUD Cycles")
 
     # ────────── PROJECT CRUD ──────────
     pn = make_name("project")
-    r = await tr.run(session, "create", "create_project", {
+    r = tr.check_ok(await session.call_tool("create_project", {
         "name": pn, "identifier": pn, "description": "Test", "public": True, "active": True,
-    })
-    pid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
+    }), "create", "create_project")
+    pid = extract_content(r).get("id")
 
-    await tr.run(session, "list", "list_projects", {}, expect="success")
-    await tr.run(session, "get", "get_project_by_id", {"id": pid})
+    tr.check_ok(await session.call_tool("list_projects", {}), "list", "list_projects")
+    tr.check_ok(await session.call_tool("get_project_by_id", {"id": pid}), "get", "get_project_by_id")
 
-    # ── Copy test (independent, separate project) ──
+    # ── Copy test ──
     cpy_name = pn + "-cpy"
-    cr = await tr.run(session, "copy", "copy_project", {"id": pid, "name": cpy_name, "identifier": pn + "_cpy"})
-    cpy_data = extract_content(cr)
-    job_id = cpy_data.get("jobId") if isinstance(cpy_data, dict) else None
+    cr = tr.check_ok(await session.call_tool("copy_project", {
+        "id": pid, "name": cpy_name, "identifier": pn + "_cpy",
+    }), "copy", "copy_project")
+    job_id = extract_content(cr).get("jobId")
+
+    jr = cr
     for _ in range(30):
         await asyncio.sleep(1)
         jr = await session.call_tool("get_job_status", {"job_id": job_id})
-        jd = extract_content(jr)
-        if isinstance(jd, dict) and jd.get("status") == "success":
-            break
-    cpy_found = None
+
+    tr.check_ok(jr, "copy job complete", "get_job_status")
+
+    cpf = None
     for _ in range(10):
         await asyncio.sleep(1)
-        lr = await session.call_tool("list_projects", {"page_size": 100})
-        cpy_found = find_match(extract_content(lr), "name", cpy_name)
-        if cpy_found:
-            break
-    if cpy_found:
-        await tr.run(session, "get copy", "get_project_by_id", {"id": cpy_found.get("id")})
-        await tr.run(session, "delete copy", "delete_project", {"id": cpy_found.get("id")})
-        await asyncio.sleep(0.3)
-    await tr.run(session, "delete", "delete_project", {"id": pid})
-    await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_project_by_id", {"id": pid}, expect="error")
+        cpf = find_match(extract_content(await session.call_tool("list_projects", {"page_size": 100})), "name", cpy_name)
 
-    # ── Update test (independent, separate project) ──
+    tr.check_ok(await session.call_tool("get_project_by_id", {"id": (cpf or {}).get("id")}), "get copy", "get_project_by_id")
+    tr.check_ok(await session.call_tool("delete_project", {"id": (cpf or {}).get("id")}), "delete copy", "delete_project")
+
+    tr.check_ok(await session.call_tool("delete_project", {"id": pid}), "delete", "delete_project")
+    await asyncio.sleep(0.3)
+    tr.check_verdel(await session.call_tool("get_project_by_id", {"id": pid}), "verify-delete", "get_project_by_id")
+
+    # ── Update test (separate project) ──
     pn2 = make_name("upd")
-    r2 = await tr.run(session, "create upd project", "create_project", {
+    r2 = tr.check_ok(await session.call_tool("create_project", {
         "name": pn2, "identifier": pn2, "description": "Update test", "public": True, "active": True,
-    })
-    pid2 = extract_content(r2).get("id") if isinstance(extract_content(r2), dict) else None
-    g2 = await tr.call(session, "get lock", "get_project_by_id", {"id": pid2})
-    gd2 = extract_content(g2)
-    lv2 = gd2.get("lockVersion") if isinstance(gd2, dict) else None
-    up2 = {"id": pid2, "name": "upd-" + pn2, "lock_version": lv2}
-    await tr.run(session, "update", "update_project", up2)
-    await tr.run(session, "delete", "delete_project", {"id": pid2})
-    await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_project_by_id", {"id": pid2}, expect="error")
+    }), "create upd project", "create_project")
+    pid2 = extract_content(r2).get("id")
 
-    # ────────── CATEGORIES & BUDGETS (scan up to 10 projects) ──────────
-    cid = None
-    bid = None
-    plr = await session.call_tool("list_projects", {"page_size": 10})
-    plc = extract_content(plr)
-    for proj in get_list_items(plc):
-        if not isinstance(proj, dict):
-            continue
-        pid_num = proj.get("id")
-        if not pid_num:
-            continue
-        if cid is None:
-            cid = await _get_id("category", "list_project_categories", {"project_id": pid_num})
-        if bid is None:
-            bid = await _get_id("budget", "list_project_budgets", {"project_id": pid_num})
-        if cid is not None and bid is not None:
-            break
-    await tr.run(session, "get category", "get_category_by_id", {"id": cid})
-    await tr.run(session, "get budget", "get_budget_by_id", {"id": bid})
+    g2 = tr.check_ok(await session.call_tool("get_project_by_id", {"id": pid2}), "get lock", "get_project_by_id")
+    gd2 = extract_content(g2)
+    up2 = {"id": pid2, "name": "upd-" + pn2, "lock_version": gd2.get("lockVersion")}
+    tr.check_ok(await session.call_tool("update_project", up2), "update", "update_project")
+    tr.check_ok(await session.call_tool("delete_project", {"id": pid2}), "delete", "delete_project")
+    await asyncio.sleep(0.3)
+    tr.check_verdel(await session.call_tool("get_project_by_id", {"id": pid2}), "verify-delete", "get_project_by_id")
+
+    # ────────── CATEGORIES & BUDGETS ──────────
+    r = tr.check_ok(await session.call_tool("list_project_categories", {"project_id": 1}), "list categories", "list_project_categories")
+    cid = get_first_id(extract_content(r))
+    r = tr.check_ok(await session.call_tool("list_project_budgets", {"project_id": 1}), "list budgets", "list_project_budgets")
+    bid = get_first_id(extract_content(r))
+    tr.check_ok(await session.call_tool("get_category_by_id", {"id": cid}), "get category", "get_category_by_id")
+    tr.check_ok(await session.call_tool("get_budget_by_id", {"id": bid}), "get budget", "get_budget_by_id")
 
     # ────────── VERSION ──────────
     vn = make_name("ver")
-    r = await tr.run(session, "create", "create_version", {"name": vn, "project_id": store.get("persistent_project_id")})
-    vid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
-    await tr.run(session, "list", "list_versions", {}, expect="success")
-    g = await tr.call(session, "get lock", "get_version_by_id", {"id": vid})
+    r = tr.check_ok(await session.call_tool("create_version", {
+        "name": vn, "project_id": persistent_project_id,
+    }), "create", "create_version")
+    vid = extract_content(r).get("id")
+
+    tr.check_ok(await session.call_tool("list_versions", {}), "list", "list_versions")
+    g = tr.check_ok(await session.call_tool("get_version_by_id", {"id": vid}), "get lock", "get_version_by_id")
     gd = extract_content(g)
-    lv = gd.get("lockVersion") if isinstance(gd, dict) else None
-    up = {"id": vid, "lock_version": lv}
-    up["name"] = "upd-" + vn
-    await tr.run(session, "update", "update_version", up)
-    await tr.run(session, "delete", "delete_version", {"id": vid})
+    up = {"id": vid, "lock_version": gd.get("lockVersion"), "name": "upd-" + vn}
+    tr.check_ok(await session.call_tool("update_version", up), "update", "update_version")
+    tr.check_ok(await session.call_tool("delete_version", {"id": vid}), "delete", "delete_version")
     await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_version_by_id", {"id": vid}, expect="error")
+    tr.check_verdel(await session.call_tool("get_version_by_id", {"id": vid}), "verify-delete", "get_version_by_id")
 
     # ────────── USER ──────────
-    suid = None
     sun = make_name("usr")
-    sr = await tr.run(session, "create", "create_user", {"login": sun, "first_name": "Test", "last_name": "User", "email": f"{sun}@test.com", "password": "Passw0rd!!!", "admin": False})
-    suid = extract_content(sr).get("id") if isinstance(extract_content(sr), dict) else None
-    await tr.run(session, "get user", "get_user_by_id", {"id": suid})
-    sr2 = await tr.call(session, "get lock", "get_user_by_id", {"id": suid})
-    srd = extract_content(sr2)
-    lv = srd.get("lockVersion") if isinstance(srd, dict) else None
-    up = {"id": suid, "first_name": "Updated"}
-    await tr.run(session, "update", "update_user", up)
+    r = tr.check_ok(await session.call_tool("create_user", {
+        "login": sun, "first_name": "Test", "last_name": "User",
+        "email": f"{sun}@test.com", "password": "Passw0rd!!!", "admin": False,
+    }), "create", "create_user")
+    suid = extract_content(r).get("id")
+
+    tr.check_ok(await session.call_tool("get_user_by_id", {"id": suid}), "get user", "get_user_by_id")
+    g = tr.check_ok(await session.call_tool("get_user_by_id", {"id": suid}), "get lock", "get_user_by_id")
+    tr.check_ok(await session.call_tool("update_user", {"id": suid, "first_name": "Updated"}), "update", "update_user")
 
     # ────────── GROUP + MEMBERSHIP ──────────
     gn = make_name("group")
-    gr = await tr.run(session, "create", "create_group", {"name": gn})
-    gid = extract_content(gr).get("id") if isinstance(extract_content(gr), dict) else None
-    await tr.run(session, "get group", "get_group_by_id", {"id": gid})
-    mid_args = {"member_ids": [suid]}
-    upd_args = {"id": gid, "name": "upd-" + gn}
-    if suid and gid:
-        upd_args["member_ids"] = [suid]
-    await tr.run(session, "update group", "update_group", upd_args)
+    r = tr.check_ok(await session.call_tool("create_group", {"name": gn}), "create", "create_group")
+    gid = extract_content(r).get("id")
 
-    mc = await tr.run(session, "create", "create_membership", {
-        "project_id": store.get("persistent_project_id"), "principal_id": gid, "role_ids": [sid_role],
-    }, expect="success")
-    mid = extract_content(mc).get("id") if isinstance(extract_content(mc), dict) else None
-    await tr.run(session, "list", "list_memberships", {}, expect="success")
-    await tr.run(session, "get", "get_membership_by_id", {"id": mid})
-    await tr.run(session, "update", "update_membership", {"id": mid, "role_ids": [sid_role]})
-    await tr.run(session, "delete", "delete_membership", {"id": mid})
+    tr.check_ok(await session.call_tool("get_group_by_id", {"id": gid}), "get group", "get_group_by_id")
+    tr.check_ok(await session.call_tool("update_group", {
+        "id": gid, "name": "upd-" + gn, "member_ids": [suid],
+    }), "update group", "update_group")
+
+    mc = tr.check_ok(await session.call_tool("create_membership", {
+        "project_id": persistent_project_id, "principal_id": gid, "role_ids": [role_id],
+    }), "create", "create_membership")
+    mid = extract_content(mc).get("id")
+
+    tr.check_ok(await session.call_tool("list_memberships", {}), "list", "list_memberships")
+    tr.check_ok(await session.call_tool("get_membership_by_id", {"id": mid}), "get", "get_membership_by_id")
+    tr.check_ok(await session.call_tool("update_membership", {"id": mid, "role_ids": [role_id]}), "update", "update_membership")
+    tr.check_ok(await session.call_tool("delete_membership", {"id": mid}), "delete", "delete_membership")
     await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_membership_by_id", {"id": mid}, expect="error")
-    await tr.run(session, "delete group", "delete_group", {"id": gid})
+    tr.check_verdel(await session.call_tool("get_membership_by_id", {"id": mid}), "verify-delete", "get_membership_by_id")
 
-    # ────────── WORK PACKAGE ──────────
+    tr.check_ok(await session.call_tool("delete_group", {"id": gid}), "delete group", "delete_group")
+
+    # ────────── WORK PACKAGE CRUD ──────────
     wn = make_name("wp")
-    r = await tr.run(session, "create", "create_work_package", {
-        "subject": wn, "project_id": store.get("persistent_project_id"), "type_id": sid_type,
-        "priority_id": sid_priority, "status_id": sid_status,
-    })
-    wpid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
+    r = tr.check_ok(await session.call_tool("create_work_package", {
+        "subject": wn, "project_id": persistent_project_id,
+        "type_id": type_id, "priority_id": priority_id, "status_id": status_id,
+    }), "create", "create_work_package")
+    wpid = extract_content(r).get("id")
 
-    await tr.run(session, "list", "list_work_packages", {}, expect="success")
-    await tr.run(session, "get", "get_work_package_by_id", {"id": wpid})
+    tr.check_ok(await session.call_tool("list_work_packages", {}), "list", "list_work_packages")
+    tr.check_ok(await session.call_tool("get_work_package_by_id", {"id": wpid}), "get", "get_work_package_by_id")
+    tr.check_ok(await session.call_tool("add_work_package_comment", {"id": wpid, "comment": "Test comment"}), "add comment", "add_work_package_comment")
 
-    await tr.run(session, "add comment", "add_work_package_comment", {"id": wpid, "comment": "Test comment"})
-    act_result = await tr.call(session, "get activities", "get_work_package_activities", {"id": wpid})
-    act_data = extract_content(act_result)
-    act_id = acts[0].get("id") if isinstance(act_data, dict) and (acts := get_list_items(act_data)) else None
+    act_r = tr.check_ok(await session.call_tool("get_work_package_activities", {"id": wpid}), "get activities", "get_work_package_activities")
+    act_id = get_first_id(extract_content(act_r))
 
-    await tr.run(session, "get activities", "get_work_package_activities", {"id": wpid})
-    await tr.run(session, "add watcher", "add_work_package_watcher", {"id": wpid, "user_id": suid})
-    await tr.run(session, "get watchers", "get_work_package_watchers", {"id": wpid})
-    await tr.run(session, "remove watcher", "remove_work_package_watcher", {"id": wpid, "user_id": suid})
+    tr.check_ok(await session.call_tool("add_work_package_watcher", {"id": wpid, "user_id": suid}), "add watcher", "add_work_package_watcher")
+    tr.check_ok(await session.call_tool("get_work_package_watchers", {"id": wpid}), "get watchers", "get_work_package_watchers")
+    tr.check_ok(await session.call_tool("remove_work_package_watcher", {"id": wpid, "user_id": suid}), "remove watcher", "remove_work_package_watcher")
 
-    wp2 = await tr.call(session, "create related wp", "create_work_package", {
-        "subject": wn + "-rel", "project_id": store.get("persistent_project_id"),
-        "type_id": sid_type, "priority_id": sid_priority, "status_id": sid_status,
-    })
-    wp2id = extract_content(wp2).get("id") if isinstance(extract_content(wp2), dict) else None
-    await tr.run(session, "create relation", "create_work_package_relation", {"id": wpid, "target_id": wp2id, "relation_type": "relates"})
-    await tr.run(session, "get relations", "get_work_package_relations", {"id": wpid})
-    await tr.run(session, "delete related wp", "delete_work_package", {"id": wp2id} if wp2id else {})
+    wp2 = tr.check_ok(await session.call_tool("create_work_package", {
+        "subject": wn + "-rel", "project_id": persistent_project_id,
+        "type_id": type_id, "priority_id": priority_id, "status_id": status_id,
+    }), "create related wp", "create_work_package")
+    wp2id = extract_content(wp2).get("id")
+
+    tr.check_ok(await session.call_tool("create_work_package_relation", {
+        "id": wpid, "target_id": wp2id, "relation_type": "relates",
+    }), "create relation", "create_work_package_relation")
+    tr.check_ok(await session.call_tool("get_work_package_relations", {"id": wpid}), "get relations", "get_work_package_relations")
+    tr.check_ok(await session.call_tool("delete_work_package", {"id": wp2id}), "delete related wp", "delete_work_package")
     await asyncio.sleep(0.3)
-    await tr.run(session, "list attachments", "list_work_package_attachments", {"id": wpid})
+    tr.check_ok(await session.call_tool("list_work_package_attachments", {"id": wpid}), "list attachments", "list_work_package_attachments")
 
-    await tr.run(session, "toggle emoji", "toggle_emoji_reaction", {"activity_id": act_id, "reaction": "thumbs_up"})
-    await tr.run(session, "list emoji", "list_emoji_reactions", {"activity_id": act_id})
+    tr.check_ok(await session.call_tool("toggle_emoji_reaction", {
+        "activity_id": act_id, "reaction": "thumbs_up",
+    }), "toggle emoji", "toggle_emoji_reaction")
+    tr.check_ok(await session.call_tool("list_emoji_reactions", {"activity_id": act_id}), "list emoji", "list_emoji_reactions")
 
     future = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-    rr = await tr.run(session, "create reminder", "create_reminder", {"work_package_id": wpid, "remind_at": future, "note": "Test reminder"})
-    rrid = extract_content(rr).get("id") if isinstance(extract_content(rr), dict) else None
-    await tr.run(session, "update reminder", "update_reminder", {"id": rrid, "note": "Updated reminder"})
-    await tr.run(session, "delete reminder", "delete_reminder", {"id": rrid})
-    await asyncio.sleep(0.3)
-    await tr.run(session, "verify reminder delete", "delete_reminder", {"id": rrid}, expect="error")
+    rr = tr.check_ok(await session.call_tool("create_reminder", {
+        "work_package_id": wpid, "remind_at": future, "note": "Test reminder",
+    }), "create reminder", "create_reminder")
+    rrid = extract_content(rr).get("id")
 
-    g = await tr.call(session, "get lock", "get_work_package_by_id", {"id": wpid})
+    tr.check_ok(await session.call_tool("update_reminder", {
+        "id": rrid, "note": "Updated reminder",
+    }), "update reminder", "update_reminder")
+    tr.check_ok(await session.call_tool("delete_reminder", {"id": rrid}), "delete reminder", "delete_reminder")
+    await asyncio.sleep(0.3)
+    tr.check_verdel(await session.call_tool("delete_reminder", {"id": rrid}), "verify reminder delete", "delete_reminder")
+
+    g = tr.check_ok(await session.call_tool("get_work_package_by_id", {"id": wpid}), "get lock", "get_work_package_by_id")
     gd = extract_content(g)
-    lv = gd.get("lockVersion") if isinstance(gd, dict) else None
-    up = {"id": wpid, "subject": "upd-" + wn, "lock_version": lv}
-    await tr.run(session, "update", "update_work_package", up)
-    await tr.run(session, "delete", "delete_work_package", {"id": wpid})
+    up = {"id": wpid, "subject": "upd-" + wn, "lock_version": gd.get("lockVersion")}
+    tr.check_ok(await session.call_tool("update_work_package", up), "update", "update_work_package")
+    tr.check_ok(await session.call_tool("delete_work_package", {"id": wpid}), "delete", "delete_work_package")
     await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_work_package_by_id", {"id": wpid}, expect="error")
+    tr.check_verdel(await session.call_tool("get_work_package_by_id", {"id": wpid}), "verify-delete", "get_work_package_by_id")
 
-    # Generate notification then test get_notification_by_id
+    # ────────── NOTIFICATION ──────────
     nn = make_name("notif")
-    nr = await tr.run(session, "create notif WP", "create_work_package", {
-        "subject": nn, "project_id": store.get("persistent_project_id"),
-        "type_id": sid_type, "priority_id": sid_priority, "status_id": sid_status,
-        "description": f"Hey @user#{sid_user} check this",
-    })
-    nwid = extract_content(nr).get("id") if isinstance(extract_content(nr), dict) else None
+    nr = tr.check_ok(await session.call_tool("create_work_package", {
+        "subject": nn, "project_id": persistent_project_id,
+        "type_id": type_id, "priority_id": priority_id, "status_id": status_id,
+        "description": f"Hey @user#{user_id} check this",
+    }), "create notif WP", "create_work_package")
+    nwid = extract_content(nr).get("id")
+
     await asyncio.sleep(8)
-    nid = await _get_id("notification", "list_notifications")
-    await tr.run(session, "get notification", "get_notification_by_id", {"id": nid})
-    await tr.run(session, "delete notif WP", "delete_work_package", {"id": nwid})
+
+    nid_r = tr.check_ok(await session.call_tool("list_notifications", {}), "list notifications", "list_notifications")
+    nid = get_first_id(extract_content(nid_r))
+    tr.check_ok(await session.call_tool("get_notification_by_id", {"id": nid}), "get notification", "get_notification_by_id")
+    tr.check_ok(await session.call_tool("delete_work_package", {"id": nwid}), "delete notif WP", "delete_work_package")
     await asyncio.sleep(0.3)
 
-    # Delete test user
-    await tr.run(session, "delete user", "delete_user", {"id": suid})
+    # ────────── DELETE USER ──────────
+    tr.check_ok(await session.call_tool("delete_user", {"id": suid}), "delete user", "delete_user")
     await asyncio.sleep(0.3)
-    await tr.run(session, "verify user delete", "get_user_by_id", {"id": suid}, expect="error")
+    tr.check_verdel(await session.call_tool("get_user_by_id", {"id": suid}), "verify user delete", "get_user_by_id")
 
-    # ────────── MEETING ──────────
+    # ────────── MEETING CRUD ──────────
     mn = make_name("mtg")
-    r = await tr.run(session, "create", "create_meeting", {
-        "title": mn, "project_id": store.get("persistent_project_id"), "start_time": "2026-07-01T10:00:00+00:00", "end_time": "2026-07-01T11:00:00+00:00",
-    }, expect="success")
-    mtid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
+    r = tr.check_ok(await session.call_tool("create_meeting", {
+        "title": mn, "project_id": persistent_project_id,
+        "start_time": "2026-07-01T10:00:00+00:00", "end_time": "2026-07-01T11:00:00+00:00",
+    }), "create", "create_meeting")
+    mtid = extract_content(r).get("id")
 
-    await tr.run(session, "list", "list_meetings", {}, expect="success")
-    await tr.run(session, "get", "get_meeting_by_id", {"id": mtid})
-    await tr.run(session, "list agenda", "list_meeting_agenda_items", {"meeting_id": mtid})
-    await tr.run(session, "list sections", "list_meeting_sections", {"meeting_id": mtid})
+    tr.check_ok(await session.call_tool("list_meetings", {}), "list", "list_meetings")
+    tr.check_ok(await session.call_tool("get_meeting_by_id", {"id": mtid}), "get", "get_meeting_by_id")
+    tr.check_ok(await session.call_tool("list_meeting_agenda_items", {"meeting_id": mtid}), "list agenda", "list_meeting_agenda_items")
+    tr.check_ok(await session.call_tool("list_meeting_sections", {"meeting_id": mtid}), "list sections", "list_meeting_sections")
 
-    ac = await tr.run(session, "create agenda", "create_meeting_agenda_item", {"meeting_id": mtid, "item_type": "simple", "title": "Ag1"})
-    agid = extract_content(ac).get("id") if isinstance(extract_content(ac), dict) else None
-    await tr.run(session, "get agenda", "get_meeting_agenda_item_by_id", {"meeting_id": mtid, "id": agid})
-    await tr.run(session, "update agenda", "update_meeting_agenda_item", {"meeting_id": mtid, "id": agid, "title": "UpdAg"})
-    await tr.run(session, "delete agenda", "delete_meeting_agenda_item", {"meeting_id": mtid, "id": agid})
+    ac = tr.check_ok(await session.call_tool("create_meeting_agenda_item", {
+        "meeting_id": mtid, "item_type": "simple", "title": "Ag1",
+    }), "create agenda", "create_meeting_agenda_item")
+    agid = extract_content(ac).get("id")
 
-    sc = await tr.run(session, "create section", "create_meeting_section", {"meeting_id": mtid, "title": "Sec1", "position": 1})
-    scid = extract_content(sc).get("id") if isinstance(extract_content(sc), dict) else None
-    await tr.run(session, "get section", "get_meeting_section_by_id", {"meeting_id": mtid, "id": scid})
-    await tr.run(session, "update section", "update_meeting_section", {"meeting_id": mtid, "id": scid, "title": "UpdSec"})
-    await tr.run(session, "delete section", "delete_meeting_section", {"meeting_id": mtid, "id": scid})
+    tr.check_ok(await session.call_tool("get_meeting_agenda_item_by_id", {"meeting_id": mtid, "id": agid}), "get agenda", "get_meeting_agenda_item_by_id")
+    tr.check_ok(await session.call_tool("update_meeting_agenda_item", {"meeting_id": mtid, "id": agid, "title": "UpdAg"}), "update agenda", "update_meeting_agenda_item")
+    tr.check_ok(await session.call_tool("delete_meeting_agenda_item", {"meeting_id": mtid, "id": agid}), "delete agenda", "delete_meeting_agenda_item")
 
-    await tr.run(session, "update", "update_meeting", {"id": mtid, "title": "upd-" + mn})
-    await tr.run(session, "delete", "delete_meeting", {"id": mtid})
+    sc = tr.check_ok(await session.call_tool("create_meeting_section", {
+        "meeting_id": mtid, "title": "Sec1", "position": 1,
+    }), "create section", "create_meeting_section")
+    scid = extract_content(sc).get("id")
+
+    tr.check_ok(await session.call_tool("get_meeting_section_by_id", {"meeting_id": mtid, "id": scid}), "get section", "get_meeting_section_by_id")
+    tr.check_ok(await session.call_tool("update_meeting_section", {"meeting_id": mtid, "id": scid, "title": "UpdSec"}), "update section", "update_meeting_section")
+    tr.check_ok(await session.call_tool("delete_meeting_section", {"meeting_id": mtid, "id": scid}), "delete section", "delete_meeting_section")
+
+    tr.check_ok(await session.call_tool("update_meeting", {"id": mtid, "title": "upd-" + mn}), "update", "update_meeting")
+    tr.check_ok(await session.call_tool("delete_meeting", {"id": mtid}), "delete", "delete_meeting")
     await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_meeting_by_id", {"id": mtid}, expect="error")
+    tr.check_verdel(await session.call_tool("get_meeting_by_id", {"id": mtid}), "verify-delete", "get_meeting_by_id")
 
-    # ────────── NEWS ──────────
+    # ────────── NEWS CRUD ──────────
     nn = make_name("news")
-    r = await tr.run(session, "create", "create_news", {"title": nn, "project_id": store.get("persistent_project_id")})
-    nid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
-    await tr.run(session, "list", "list_news", {}, expect="success")
-    await tr.run(session, "get", "get_news_by_id", {"id": nid})
-    await tr.run(session, "update", "update_news", {"id": nid, "title": "upd-" + nn})
-    await tr.run(session, "delete", "delete_news", {"id": nid})
-    await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_news_by_id", {"id": nid}, expect="error")
+    r = tr.check_ok(await session.call_tool("create_news", {
+        "title": nn, "project_id": persistent_project_id,
+    }), "create", "create_news")
+    nid = extract_content(r).get("id")
 
-    # ────────── GRID ──────────
+    tr.check_ok(await session.call_tool("list_news", {}), "list", "list_news")
+    tr.check_ok(await session.call_tool("get_news_by_id", {"id": nid}), "get", "get_news_by_id")
+    tr.check_ok(await session.call_tool("update_news", {"id": nid, "title": "upd-" + nn}), "update", "update_news")
+    tr.check_ok(await session.call_tool("delete_news", {"id": nid}), "delete", "delete_news")
+    await asyncio.sleep(0.3)
+    tr.check_verdel(await session.call_tool("get_news_by_id", {"id": nid}), "verify-delete", "get_news_by_id")
+
+    # ────────── GRID CRUD ──────────
     gn = make_name("grid")
-    scope_href = "/projects/demo-project/boards"
-    pident = store.get("project_ident")
-    scope_href = f"/projects/{pident}/boards" if pident else scope_href
-    r = await tr.run(session, "create", "create_grid", {
+    scope_href = f"/projects/{persistent_project_id}/boards"
+    r = tr.check_ok(await session.call_tool("create_grid", {
         "page": gn, "row_count": 3, "column_count": 2, "scope_href": scope_href,
-    })
-    gid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
-    await tr.run(session, "list", "list_grids", {}, expect="success")
-    await tr.run(session, "get", "get_grid_by_id", {"id": gid})
-    await tr.run(session, "update", "update_grid", {"id": gid})
-    await tr.run(session, "delete", "delete_grid", {"id": gid})
-    await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_grid_by_id", {"id": gid}, expect="error")
+    }), "create", "create_grid")
+    gid = extract_content(r).get("id")
 
-    # ────────── TIME ENTRY ──────────
+    tr.check_ok(await session.call_tool("list_grids", {}), "list", "list_grids")
+    tr.check_ok(await session.call_tool("get_grid_by_id", {"id": gid}), "get", "get_grid_by_id")
+    tr.check_ok(await session.call_tool("update_grid", {"id": gid}), "update", "update_grid")
+    tr.check_ok(await session.call_tool("delete_grid", {"id": gid}), "delete", "delete_grid")
+    await asyncio.sleep(0.3)
+    tr.check_verdel(await session.call_tool("get_grid_by_id", {"id": gid}), "verify-delete", "get_grid_by_id")
+
+    # ────────── TIME ENTRY CRUD ──────────
     ten = make_name("te")
-    te_ppid = store.get("persistent_project_id")
-    te_wp_r = await tr.call(session, "create te wp", "create_work_package", {
-        "subject": "te-" + ten, "project_id": te_ppid,
-        "type_id": sid_type, "priority_id": sid_priority, "status_id": sid_status,
-    })
-    te_wpid = extract_content(te_wp_r).get("id") if isinstance(extract_content(te_wp_r), dict) else None
-    te = await tr.run(session, "create", "create_time_entry", {
-        "project_id": te_ppid, "work_package_id": te_wpid, "hours": "PT2H", "spent_on": "2026-06-27",
-        "comment": ten,
-    })
-    teid = extract_content(te).get("id") if isinstance(extract_content(te), dict) else None
-    await tr.run(session, "get", "get_time_entry_by_id", {"id": teid})
-    await tr.run(session, "update", "update_time_entry", {"id": teid, "hours": "PT4H"})
-    await tr.run(session, "delete", "delete_time_entry", {"id": teid})
-    await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_time_entry_by_id", {"id": teid}, expect="error")
-    await tr.run(session, "list", "list_time_entries", {}, expect="success")
+    te_wp_r = tr.check_ok(await session.call_tool("create_work_package", {
+        "subject": "te-" + ten, "project_id": persistent_project_id,
+        "type_id": type_id, "priority_id": priority_id, "status_id": status_id,
+    }), "create te wp", "create_work_package")
+    te_wpid = extract_content(te_wp_r).get("id")
 
-    # ────────── RECURRING MEETING ──────────
+    te = tr.check_ok(await session.call_tool("create_time_entry", {
+        "project_id": persistent_project_id, "work_package_id": te_wpid,
+        "hours": "PT2H", "spent_on": "2026-06-27", "comment": ten,
+    }), "create", "create_time_entry")
+    teid = extract_content(te).get("id")
+
+    tr.check_ok(await session.call_tool("get_time_entry_by_id", {"id": teid}), "get", "get_time_entry_by_id")
+    tr.check_ok(await session.call_tool("update_time_entry", {"id": teid, "hours": "PT4H"}), "update", "update_time_entry")
+    tr.check_ok(await session.call_tool("delete_time_entry", {"id": teid}), "delete", "delete_time_entry")
+    await asyncio.sleep(0.3)
+    tr.check_verdel(await session.call_tool("get_time_entry_by_id", {"id": teid}), "verify-delete", "get_time_entry_by_id")
+
+    tr.check_ok(await session.call_tool("list_time_entries", {}), "list", "list_time_entries")
+
+    # ────────── RECURRING MEETING CRUD ──────────
     rmn = make_name("rm")
-    r = await tr.run(session, "create", "create_recurring_meeting", {
-        "project_id": store.get("persistent_project_id"), "title": rmn, "frequency": "weekly",
+    r = tr.check_ok(await session.call_tool("create_recurring_meeting", {
+        "project_id": persistent_project_id, "title": rmn, "frequency": "weekly",
         "start_time": "2026-07-01T10:00:00+00:00", "end_time": "2026-07-01T11:00:00+00:00",
         "days": [1],
-    })
-    rmid = extract_content(r).get("id") if isinstance(extract_content(r), dict) else None
-    await tr.run(session, "list", "list_recurring_meetings", {}, expect="success")
-    await tr.run(session, "get", "get_recurring_meeting_by_id", {"id": rmid})
-    await tr.run(session, "update", "update_recurring_meeting", {"id": rmid, "title": "upd-" + rmn})
-    await tr.run(session, "delete", "delete_recurring_meeting", {"id": rmid})
-    await asyncio.sleep(0.3)
-    await tr.run(session, "verify-delete", "get_recurring_meeting_by_id", {"id": rmid}, expect="error")
+    }), "create", "create_recurring_meeting")
+    rmid = extract_content(r).get("id")
 
-    # ────────── CLEANUP: Delete persistent project ──────────
-    ppid = store.get("persistent_project_id")
-    await tr.run(session, "delete base project", "delete_project", {"id": ppid})
+    tr.check_ok(await session.call_tool("list_recurring_meetings", {}), "list", "list_recurring_meetings")
+    tr.check_ok(await session.call_tool("get_recurring_meeting_by_id", {"id": rmid}), "get", "get_recurring_meeting_by_id")
+    tr.check_ok(await session.call_tool("update_recurring_meeting", {"id": rmid, "title": "upd-" + rmn}), "update", "update_recurring_meeting")
+    tr.check_ok(await session.call_tool("delete_recurring_meeting", {"id": rmid}), "delete", "delete_recurring_meeting")
     await asyncio.sleep(0.3)
-    await tr.run(session, "verify base deleted", "get_project_by_id", {"id": ppid}, expect="error")
+    tr.check_verdel(await session.call_tool("get_recurring_meeting_by_id", {"id": rmid}), "verify-delete", "get_recurring_meeting_by_id")
+
+    # ────────── CLEANUP ──────────
+    tr.check_ok(await session.call_tool("delete_project", {"id": persistent_project_id}), "delete base project", "delete_project")
+    await asyncio.sleep(0.3)
+    tr.check_verdel(await session.call_tool("get_project_by_id", {"id": persistent_project_id}), "verify base deleted", "get_project_by_id")
 
     # ══════════════════════════════════════════════════════════════════
     # Phase 5: Leak Detection
@@ -751,42 +695,37 @@ async def async_main() -> None:
     tr.print_phase("Phase 5 — Leak Detection")
 
     leak_config = {
-        "projects": {"list_tool": "list_projects", "match_field": "name"},
-        "work_packages": {"list_tool": "list_work_packages", "match_field": "subject"},
-        "versions": {"list_tool": "list_versions", "match_field": "name"},
-        "meetings": {"list_tool": "list_meetings", "match_field": "title"},
-        "news": {"list_tool": "list_news", "match_field": "title"},
-        "grids": {"list_tool": "list_grids", "match_field": "page"},
-        "time_entries": {"list_tool": "list_time_entries", "match_field": "comment"},
-        "recurring_meetings": {"list_tool": "list_recurring_meetings", "match_field": "title"},
-        "groups": {"list_tool": "list_groups", "match_field": "name"},
+        "projects": {"list_tool": "list_projects", "del_tool": "delete_project", "match_field": "name"},
+        "work_packages": {"list_tool": "list_work_packages", "del_tool": "delete_work_package", "match_field": "subject"},
+        "versions": {"list_tool": "list_versions", "del_tool": "delete_version", "match_field": "name"},
+        "meetings": {"list_tool": "list_meetings", "del_tool": "delete_meeting", "match_field": "title"},
+        "news": {"list_tool": "list_news", "del_tool": "delete_news", "match_field": "title"},
+        "grids": {"list_tool": "list_grids", "del_tool": "delete_grid", "match_field": "page"},
+        "time_entries": {"list_tool": "list_time_entries", "del_tool": "delete_time_entry", "match_field": "comment"},
+        "recurring_meetings": {"list_tool": "list_recurring_meetings", "del_tool": "delete_recurring_meeting", "match_field": "title"},
+        "groups": {"list_tool": "list_groups", "del_tool": "delete_group", "match_field": "name"},
     }
 
+    def is_test_artifact(name: str) -> bool:
+        return len(name) > 8 and name.startswith("t") and name[1:9].isdigit()
+
     leak_found = False
-    rid_prefix = f"t{rid}-"
 
     for domain, cfg in leak_config.items():
         lt = cfg["list_tool"]
+        dt = cfg["del_tool"]
         mf = cfg["match_field"]
         lr = await session.call_tool(lt, {"page_size": 100})
         lc = extract_content(lr)
-        for item in get_list_items(lc):
+        items = get_list_items(lc)
+        for item in items:
             if isinstance(item, dict):
                 nv = str(item.get(mf, ""))
-                if isinstance(nv, str) and nv.startswith(rid_prefix):
+                if isinstance(nv, str) and is_test_artifact(nv):
                     leak_found = True
-                    print(f"  LEAK DETECTED: {domain} id={item.get('id')} {mf}='{nv}'")
                     art_id = item.get("id")
-                    del_map = {
-                        "projects": "delete_project", "work_packages": "delete_work_package",
-                        "versions": "delete_version", "meetings": "delete_meeting",
-                        "news": "delete_news", "grids": "delete_grid",
-                        "time_entries": "delete_time_entry",
-                        "recurring_meetings": "delete_recurring_meeting",
-                        "groups": "delete_group",
-                    }
-                    dt = del_map[domain]
-                    await session.call_tool(dt, {"id": art_id})
+                    print(f"  LEAK DETECTED: {domain} id={art_id} {mf}='{nv}'")
+                    tr.check_ok(await session.call_tool(dt, {"id": art_id}), "cleanup " + domain + " id=" + str(art_id), dt)
 
     if leak_found:
         tr.f("Leak Detection", "leak_scan", "Test artifacts found")
