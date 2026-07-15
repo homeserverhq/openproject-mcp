@@ -600,8 +600,8 @@ async def async_main() -> None:
     agid = extract_content(ac).get("id")
 
     tr.check_ok(await session.call_tool("get_meeting_agenda_item_by_id", {"meeting_id": mtid, "id": agid}), "get agenda", "get_meeting_agenda_item_by_id")
-    tr.check_ok(await session.call_tool("update_meeting_agenda_item", {"meeting_id": mtid, "id": agid, "title": "UpdAg"}), "update agenda", "update_meeting_agenda_item")
-    tr.check_ok(await session.call_tool("delete_meeting_agenda_item", {"meeting_id": mtid, "id": agid}), "delete agenda", "delete_meeting_agenda_item")
+    tr.check_ok(await session.call_tool("update_meeting_agenda_item", {"id": agid, "title": "UpdAg"}), "update agenda", "update_meeting_agenda_item")
+    tr.check_ok(await session.call_tool("delete_meeting_agenda_item", {"id": agid}), "delete agenda", "delete_meeting_agenda_item")
 
     sc = tr.check_ok(await session.call_tool("create_meeting_section", {
         "meeting_id": mtid, "title": "Sec1", "position": 1,
@@ -609,8 +609,8 @@ async def async_main() -> None:
     scid = extract_content(sc).get("id")
 
     tr.check_ok(await session.call_tool("get_meeting_section_by_id", {"meeting_id": mtid, "id": scid}), "get section", "get_meeting_section_by_id")
-    tr.check_ok(await session.call_tool("update_meeting_section", {"meeting_id": mtid, "id": scid, "title": "UpdSec"}), "update section", "update_meeting_section")
-    tr.check_ok(await session.call_tool("delete_meeting_section", {"meeting_id": mtid, "id": scid}), "delete section", "delete_meeting_section")
+    tr.check_ok(await session.call_tool("update_meeting_section", {"id": scid, "title": "UpdSec"}), "update section", "update_meeting_section")
+    tr.check_ok(await session.call_tool("delete_meeting_section", {"id": scid}), "delete section", "delete_meeting_section")
 
     tr.check_ok(await session.call_tool("update_meeting", {"id": mtid, "title": "upd-" + mn}), "update", "update_meeting")
     tr.check_ok(await session.call_tool("delete_meeting", {"id": mtid}), "delete", "delete_meeting")

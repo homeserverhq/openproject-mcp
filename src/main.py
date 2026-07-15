@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from contextvars import ContextVar
+from typing import Any, Optional
 
 from fastmcp import FastMCP
 
@@ -11,19 +12,38 @@ from toon_mcp import json_to_toon
 
 from src.client import OpenProjectClient, ALLOW_ALL_AGGREGATE
 
-API_KEY = os.environ.get("API_KEY", "")
 MCP_SERVER_PORT = int(os.environ.get("MCP_SERVER_PORT", "6893"))
 IS_STATEFUL = os.getenv("IS_STATEFUL", "false").lower() in ("true", "1", "yes")
 
-# Global client instance (per-request token override via context)
+# ─── Auth passthrough (multi-tenant) ──────────────────────────────────
+
+_current_user_token: ContextVar[Optional[str]] = ContextVar("current_user_token", default=None)
+
 _client: OpenProjectClient | None = None
 
 
 def get_client() -> OpenProjectClient:
     global _client
     if _client is None:
-        _client = OpenProjectClient(API_KEY)
+        _client = OpenProjectClient()
     return _client
+
+
+def get_user_token() -> Optional[str]:
+    return _current_user_token.get()
+
+
+class AuthMiddleware:
+    """ASGI middleware that extracts Bearer token from incoming HTTP request and stores it in context var."""
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            headers = dict(scope.get("headers", []))
+            auth_header = headers.get(b"authorization", b"").decode()
+            if auth_header.startswith("Bearer "):
+                _current_user_token.set(auth_header[7:])
+        await self.app(scope, receive, send)
 
 
 # ─── FastMCP instance ─────────────────────────────────────────────────
@@ -326,6 +346,7 @@ def list_work_packages(
         type_id: ID of the type.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
+    token = get_user_token()
     filters: list[dict[str, Any]] = []
     if project_id is not None:
         filters.append({"project": {"operator": "=", "values": [str(project_id)]}})
@@ -337,7 +358,7 @@ def list_work_packages(
     if filters:
         import json as _json
         filter_str = _json.dumps(filters)
-    data = get_client().list_work_packages(
+    data = get_client().list_work_packages(token, 
         page_size=page_size, offset=offset, filters=filter_str,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -385,6 +406,7 @@ def create_work_package(
         ignore_non_working_days: true or false.
         category_id: ID of the category.
     """
+    token = get_user_token()
     data = WPCreate(
         subject=subject, project_id=project_id, type_id=type_id,
         description=description, status_id=status_id, priority_id=priority_id,
@@ -394,7 +416,7 @@ def create_work_package(
         schedule_manually=schedule_manually,
         ignore_non_working_days=ignore_non_working_days, category_id=category_id,
     )
-    return get_client().create_work_package(_build_wp_payload(data), ALLOW_ALL_AGGREGATE)
+    return get_client().create_work_package(token, _build_wp_payload(data), ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"read", "basic", "openproject"})
@@ -404,7 +426,8 @@ def get_work_package_by_id(id: int, include_all_fields: bool = False) -> dict[st
     Args:
         id: ID of the resource.
     """
-    return get_client().get_work_package_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_work_package_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -448,6 +471,7 @@ def update_work_package(
         percentage_done: Completion percentage (0-100).
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if subject is not None:
         payload["subject"] = subject
@@ -482,7 +506,7 @@ def update_work_package(
         payload["percentageDone"] = percentage_done
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_work_package(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_work_package(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -492,7 +516,8 @@ def delete_work_package(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_work_package(id)
+    token = get_user_token()
+    return get_client().delete_work_package(token, id)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -508,7 +533,8 @@ def get_work_package_activities(
         page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
     """
-    return get_client().get_work_package_activities(id, page_size, offset)
+    token = get_user_token()
+    return get_client().get_work_package_activities(token, id, page_size, offset)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -519,7 +545,8 @@ def add_work_package_comment(id: int, comment: str) -> dict[str, Any]:
         id: ID of the resource.
         comment: Comment text.
     """
-    return get_client().add_work_package_comment(id, comment)
+    token = get_user_token()
+    return get_client().add_work_package_comment(token, id, comment)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -529,7 +556,8 @@ def get_work_package_relations(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().get_work_package_relations(id)
+    token = get_user_token()
+    return get_client().get_work_package_relations(token, id)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -545,7 +573,8 @@ def create_work_package_relation(
         target_id: ID of the target work package for the relation.
         relation_type: relates, precedes, follows, blocks, blocked, duplicates, duplicated, includes, partof, requires, required, parent, or child (Default: relates).
     """
-    return get_client().create_work_package_relation(
+    token = get_user_token()
+    return get_client().create_work_package_relation(token, 
         id,
         {"_links": {"to": {"href": f"/api/v3/work_packages/{target_id}"}}, "type": relation_type},
     )
@@ -558,7 +587,8 @@ def get_work_package_watchers(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().get_work_package_watchers(id)
+    token = get_user_token()
+    return get_client().get_work_package_watchers(token, id)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -569,7 +599,8 @@ def add_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
         id: ID of the resource.
         user_id: ID of the user.
     """
-    return get_client().add_work_package_watcher(id, user_id)
+    token = get_user_token()
+    return get_client().add_work_package_watcher(token, id, user_id)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -580,7 +611,8 @@ def remove_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
         id: ID of the resource.
         user_id: ID of the user.
     """
-    return get_client().remove_work_package_watcher(id, user_id)
+    token = get_user_token()
+    return get_client().remove_work_package_watcher(token, id, user_id)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -596,7 +628,8 @@ def list_work_package_attachments(
         page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
     """
-    data = get_client().list_work_package_attachments(id, page_size, offset)
+    token = get_user_token()
+    data = get_client().list_work_package_attachments(token, id, page_size, offset)
     return {"items": json_to_toon(data)}
 # ─── Project Tools ────────────────────────────────────────────────────
 
@@ -613,7 +646,8 @@ def list_projects(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_projects(
+    token = get_user_token()
+    data = get_client().list_projects(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -642,6 +676,7 @@ def create_project(
         parent_id: ID of the parent work package.
         status_explanation: Explanation of the project status.
     """
+    token = get_user_token()
     links: dict[str, Any] = {}
     if parent_id is not None:
         links["parent"] = {"href": f"/api/v3/projects/{parent_id}"}
@@ -658,7 +693,7 @@ def create_project(
         payload["description"] = {"format": "markdown", "raw": description}
     if status_explanation:
         payload["statusExplanation"] = {"format": "markdown", "raw": status_explanation}
-    return get_client().create_project(payload, ALLOW_ALL_AGGREGATE)
+    return get_client().create_project(token, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"read", "basic", "openproject"})
@@ -668,7 +703,8 @@ def get_project_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     Args:
         id: ID of the resource.
     """
-    return get_client().get_project_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_project_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -696,6 +732,7 @@ def update_project(
         status_explanation: Explanation of the project status.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
@@ -713,7 +750,7 @@ def update_project(
         payload["statusExplanation"] = {"format": "markdown", "raw": status_explanation}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_project(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_project(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -723,7 +760,8 @@ def delete_project(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_project(id)
+    token = get_user_token()
+    return get_client().delete_project(token, id)
 
 
 @mcp.tool(tags={"write", "advanced", "openproject"})
@@ -739,12 +777,13 @@ def copy_project(
         name: Name.
         identifier: Unique URL-safe identifier.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
     if identifier is not None:
         payload["identifier"] = identifier
-    return get_client().copy_project(id, payload)
+    return get_client().copy_project(token, id, payload)
 
 
 # ─── Version Tools ────────────────────────────────────────────────────
@@ -762,7 +801,8 @@ def list_versions(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_versions(
+    token = get_user_token()
+    data = get_client().list_versions(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -789,6 +829,7 @@ def create_version(
         start_date: Date in YYYY-MM-DD format (2026-12-31).
         end_date: Date in YYYY-MM-DD format (2026-12-31).
     """
+    token = get_user_token()
     payload: dict[str, Any] = {
         "name": name,
         "_links": {"definingProject": {"href": f"/api/v3/projects/{project_id}"}},
@@ -801,7 +842,7 @@ def create_version(
         payload["startDate"] = start_date
     if end_date:
         payload["endDate"] = end_date
-    return get_client().create_version(payload, ALLOW_ALL_AGGREGATE)
+    return get_client().create_version(token, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"read", "basic", "openproject"})
@@ -811,7 +852,8 @@ def get_version_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     Args:
         id: ID of the resource.
     """
-    return get_client().get_version_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_version_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -837,6 +879,7 @@ def update_version(
         end_date: Date in YYYY-MM-DD format (2026-12-31).
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
@@ -852,7 +895,7 @@ def update_version(
         payload["endDate"] = end_date
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_version(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_version(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -862,7 +905,8 @@ def delete_version(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_version(id)
+    token = get_user_token()
+    return get_client().delete_version(token, id)
 
 
 # ─── Membership Tools ─────────────────────────────────────────────────
@@ -882,11 +926,12 @@ def list_memberships(
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
+    token = get_user_token()
     filters = None
     if project_id is not None:
         import json as _json
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    data = get_client().list_memberships(
+    data = get_client().list_memberships(token, 
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -906,8 +951,9 @@ def create_membership(
         principal_id: ID of the user or group.
         role_ids: List of role IDs.
     """
+    token = get_user_token()
     data = MembershipCreate(project_id=project_id, principal_id=principal_id, role_ids=role_ids)
-    return get_client().create_membership(_build_membership_payload(data), ALLOW_ALL_AGGREGATE)
+    return get_client().create_membership(token, _build_membership_payload(data), ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -917,7 +963,8 @@ def get_membership_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     Args:
         id: ID of the resource.
     """
-    return get_client().get_membership_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_membership_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -937,6 +984,7 @@ def update_membership(
         role_ids: List of role IDs.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     links: dict[str, Any] = {}
     if project_id is not None:
         links["project"] = {"href": f"/api/v3/projects/{project_id}"}
@@ -947,7 +995,7 @@ def update_membership(
     payload: dict[str, Any] = {"_links": links}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_membership(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_membership(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -957,7 +1005,8 @@ def delete_membership(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_membership(id)
+    token = get_user_token()
+    return get_client().delete_membership(token, id)
 
 
 # ─── User Tools ───────────────────────────────────────────────────────
@@ -977,7 +1026,8 @@ def list_users(
         filters: FilterExpression with conditions (field, operator, values).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_users(
+    token = get_user_token()
+    data = get_client().list_users(token, 
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -991,7 +1041,8 @@ def get_user_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().get_user_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_user_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -1015,7 +1066,8 @@ def create_user(
         language: Language code (Default: en).
         admin: true or false.
     """
-    return get_client().create_user({
+    token = get_user_token()
+    return get_client().create_user(token, {
         "login": login, "firstName": first_name, "lastName": last_name,
         "email": email, "password": password, "language": language, "admin": admin,
     }, ALLOW_ALL_AGGREGATE)
@@ -1040,6 +1092,7 @@ def update_user(
         language: Language code.
         admin: true or false.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if first_name is not None:
         payload["firstName"] = first_name
@@ -1051,7 +1104,7 @@ def update_user(
         payload["language"] = language
     if admin is not None:
         payload["admin"] = admin
-    return get_client().update_user(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_user(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -1061,7 +1114,8 @@ def delete_user(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_user(id)
+    token = get_user_token()
+    return get_client().delete_user(token, id)
 
 
 # ─── Group Tools ──────────────────────────────────────────────────────
@@ -1079,7 +1133,8 @@ def list_groups(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_groups(
+    token = get_user_token()
+    data = get_client().list_groups(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -1092,7 +1147,8 @@ def get_group_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]
     Args:
         id: ID of the resource.
     """
-    return get_client().get_group_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_group_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -1106,12 +1162,13 @@ def create_group(
         name: Name.
         member_ids: List of member user IDs.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {"name": name}
     if member_ids:
         payload["_links"] = {
             "members": [{"href": f"/api/v3/users/{uid}"} for uid in member_ids]
         }
-    return get_client().create_group(payload, ALLOW_ALL_AGGREGATE)
+    return get_client().create_group(token, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -1127,6 +1184,7 @@ def update_group(
         name: Name.
         member_ids: List of member user IDs.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
@@ -1134,7 +1192,7 @@ def update_group(
         payload["_links"] = {
             "members": [{"href": f"/api/v3/users/{uid}"} for uid in member_ids]
         }
-    return get_client().update_group(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_group(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -1144,7 +1202,8 @@ def delete_group(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_group(id)
+    token = get_user_token()
+    return get_client().delete_group(token, id)
 
 
 # ─── Status Tools ─────────────────────────────────────────────────────
@@ -1162,7 +1221,8 @@ def list_statuses(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_statuses(
+    token = get_user_token()
+    data = get_client().list_statuses(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -1175,7 +1235,8 @@ def get_status_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any
     Args:
         id: ID of the resource.
     """
-    return get_client().get_status_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_status_by_id(token, id, include_all_fields=include_all_fields)
 
 
 # ─── Type Tools ───────────────────────────────────────────────────────
@@ -1193,7 +1254,8 @@ def list_types(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_types(
+    token = get_user_token()
+    data = get_client().list_types(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -1206,7 +1268,8 @@ def get_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().get_type_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_type_by_id(token, id, include_all_fields=include_all_fields)
 
 
 # ─── Priority Tools ───────────────────────────────────────────────────
@@ -1224,7 +1287,8 @@ def list_priorities(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_priorities(
+    token = get_user_token()
+    data = get_client().list_priorities(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -1237,7 +1301,8 @@ def get_priority_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     Args:
         id: ID of the resource.
     """
-    return get_client().get_priority_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_priority_by_id(token, id, include_all_fields=include_all_fields)
 
 
 # ─── Role Tools ───────────────────────────────────────────────────────
@@ -1255,7 +1320,8 @@ def list_roles(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_roles(
+    token = get_user_token()
+    data = get_client().list_roles(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -1268,7 +1334,8 @@ def get_role_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().get_role_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_role_by_id(token, id, include_all_fields=include_all_fields)
 
 
 # ─── Principal Tools ──────────────────────────────────────────────────
@@ -1288,7 +1355,8 @@ def list_principals(
         filters: FilterExpression with conditions (field, operator, values).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_principals(
+    token = get_user_token()
+    data = get_client().list_principals(token, 
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -1302,7 +1370,8 @@ def get_principal_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
     Args:
         id: ID of the resource.
     """
-    return get_client().get_principal_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_principal_by_id(token, id, include_all_fields=include_all_fields)
 
 
 # ─── Category Tools ───────────────────────────────────────────────────
@@ -1314,7 +1383,8 @@ def get_category_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     Args:
         id: ID of the resource.
     """
-    return get_client().get_category_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_category_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -1330,7 +1400,8 @@ def list_project_categories(
         page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
     """
-    data = get_client().list_project_categories(project_id, page_size, offset)
+    token = get_user_token()
+    data = get_client().list_project_categories(token, project_id, page_size, offset)
     return {"items": json_to_toon(data)}
 # ─── Wiki Page Tools ──────────────────────────────────────────────────
 
@@ -1341,7 +1412,8 @@ def get_wiki_page_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
     Args:
         id: ID of the resource.
     """
-    return get_client().get_wiki_page_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_wiki_page_by_id(token, id, include_all_fields=include_all_fields)
 
 
 # ─── Budget Tools ─────────────────────────────────────────────────────
@@ -1353,7 +1425,8 @@ def get_budget_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any
     Args:
         id: ID of the resource.
     """
-    return get_client().get_budget_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_budget_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"read", "advanced", "openproject"})
@@ -1369,7 +1442,8 @@ def list_project_budgets(
         page_size: Number of items per page (Default: 20).
         offset: Page offset for pagination.
     """
-    data = get_client().list_project_budgets(project_id, page_size, offset)
+    token = get_user_token()
+    data = get_client().list_project_budgets(token, project_id, page_size, offset)
     return {"items": json_to_toon(data)}
 @mcp.tool(tags={"read", "advanced", "openproject"})
 def get_cost_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
@@ -1378,7 +1452,8 @@ def get_cost_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
     Args:
         id: ID of the resource.
     """
-    return get_client().get_cost_type_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_cost_type_by_id(token, id, include_all_fields=include_all_fields)
 
 
 # ─── Notification Tools ───────────────────────────────────────────────
@@ -1398,7 +1473,8 @@ def list_notifications(
         filters: FilterExpression with conditions (field, operator, values).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_notifications(
+    token = get_user_token()
+    data = get_client().list_notifications(token, 
         page_size=page_size, offset=offset, filters=_build_filter_string(filters),
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -1412,7 +1488,8 @@ def get_notification_by_id(id: int, include_all_fields: bool = False) -> dict[st
     Args:
         id: ID of the resource.
     """
-    return get_client().get_notification_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_notification_by_id(token, id, include_all_fields=include_all_fields)
 
 
 # ─── Days / Calendar Tools ────────────────────────────────────────────
@@ -1436,6 +1513,7 @@ def list_days(
         date_to: Date in YYYY-MM-DD format (2026-12-31).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
+    token = get_user_token()
     import json as _json
     filters: list[dict[str, Any]] = []
     if working is not None:
@@ -1443,7 +1521,7 @@ def list_days(
     if date_from is not None and date_to is not None:
         filters.append({"date": {"operator": "<>d", "values": [date_from, date_to]}})
     filter_str = _json.dumps(filters) if filters else None
-    data = get_client().list_days(
+    data = get_client().list_days(token, 
         page_size=page_size, offset=offset, filters=filter_str,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -1467,12 +1545,13 @@ def list_non_working_days(
         date_to: Date in YYYY-MM-DD format (2026-12-31).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
+    token = get_user_token()
     import json as _json
     filters: list[dict[str, Any]] = []
     if date_from is not None and date_to is not None:
         filters.append({"date": {"operator": "<>d", "values": [date_from, date_to]}})
     filter_str = _json.dumps(filters) if filters else None
-    data = get_client().list_non_working_days(
+    data = get_client().list_non_working_days(token, 
         page_size=page_size, offset=offset, filters=filter_str,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -1487,7 +1566,8 @@ def get_non_working_day_by_date(date: str, include_all_fields: bool = False) -> 
         date: Date in YYYY-MM-DD format (2026-12-31).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    return get_client().get_non_working_day_by_date(date, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_non_working_day_by_date(token, date, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"read", "basic", "openproject"})
@@ -1503,7 +1583,8 @@ def list_week_days(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_week_days(
+    token = get_user_token()
+    data = get_client().list_week_days(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -1517,7 +1598,8 @@ def get_week_day_by_number(day: str, include_all_fields: bool = False) -> dict[s
         day: Day of the week (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, or Sunday).
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    return get_client().get_week_day_by_number(_DAY_NAMES[day.lower()], include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_week_day_by_number(token, _DAY_NAMES[day.lower()], include_all_fields=include_all_fields)
 
 
 # ─── Attachment Tools (metadata only) ────────────────────────────────
@@ -1529,7 +1611,8 @@ def get_attachment_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     Args:
         id: ID of the resource.
     """
-    return get_client().get_attachment_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_attachment_by_id(token, id, include_all_fields=include_all_fields)
 
 
 # ─── Document Tools ───────────────────────────────────────────────────
@@ -1549,11 +1632,12 @@ def list_documents(
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
+    token = get_user_token()
     import json as _json
     filters = None
     if project_id is not None:
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    data = get_client().list_documents(
+    data = get_client().list_documents(token, 
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -1567,7 +1651,8 @@ def get_document_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     Args:
         id: ID of the resource.
     """
-    return get_client().get_document_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_document_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "advanced", "openproject"})
@@ -1585,6 +1670,7 @@ def update_document(
         description: Description text in markdown format.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1592,7 +1678,7 @@ def update_document(
         payload["description"] = {"format": "markdown", "raw": description}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_document(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_document(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 # ─── Emoji Reaction Tools ─────────────────────────────────────────────
@@ -1604,7 +1690,8 @@ def list_emoji_reactions(activity_id: int) -> dict[str, Any]:
     Args:
         activity_id: ID of the activity.
     """
-    data = get_client().list_emoji_reactions(activity_id)
+    token = get_user_token()
+    data = get_client().list_emoji_reactions(token, activity_id)
     return {"items": json_to_toon(data)}
 @mcp.tool(tags={"write", "advanced", "openproject"})
 def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
@@ -1614,7 +1701,8 @@ def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
         activity_id: ID of the activity.
         reaction: Emoji reaction string.
     """
-    return get_client().toggle_emoji_reaction(activity_id, reaction)
+    token = get_user_token()
+    return get_client().toggle_emoji_reaction(token, activity_id, reaction)
 
 
 # ─── Wiki Page Link Tools ─────────────────────────────────────────────
@@ -1637,10 +1725,11 @@ def create_reminder(
         remind_at: ISO 8601 format (2026-06-22T15:00:00-04:00).
         note: Note text.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {"remindAt": remind_at}
     if note:
         payload["note"] = note
-    return get_client().create_reminder(work_package_id, payload)
+    return get_client().create_reminder(token, work_package_id, payload)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -1656,7 +1745,8 @@ def list_reminders(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_reminders(
+    token = get_user_token()
+    data = get_client().list_reminders(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -1677,6 +1767,7 @@ def update_reminder(
         minutes_before: Minutes before the event to trigger the reminder.
         note: Note text.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if work_package_id is not None:
         payload["_links"] = {"workPackage": {"href": f"/api/v3/work_packages/{work_package_id}"}}
@@ -1684,7 +1775,7 @@ def update_reminder(
         payload["minutesBefore"] = minutes_before
     if note is not None:
         payload["notes"] = note
-    return get_client().update_reminder(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_reminder(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -1694,7 +1785,8 @@ def delete_reminder(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_reminder(id)
+    token = get_user_token()
+    return get_client().delete_reminder(token, id)
 
 
 # ─── Meeting Tools ────────────────────────────────────────────────────
@@ -1714,11 +1806,12 @@ def list_meetings(
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
+    token = get_user_token()
     import json as _json
     filters = None
     if project_id is not None:
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    data = get_client().list_meetings(
+    data = get_client().list_meetings(token, 
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -1744,7 +1837,8 @@ def create_meeting(
         location: Location or video call link.
         notify: true or false (Default: true).
     """
-    return get_client().create_meeting({
+    token = get_user_token()
+    return get_client().create_meeting(token, {
         "title": title,
         "_links": {"project": {"href": f"/api/v3/projects/{project_id}"}},
         "start_time": start_time,
@@ -1761,7 +1855,8 @@ def get_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     Args:
         id: ID of the resource.
     """
-    return get_client().get_meeting_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_meeting_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -1785,6 +1880,7 @@ def update_meeting(
         notify: true or false.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1798,7 +1894,7 @@ def update_meeting(
         payload["notify"] = notify
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_meeting(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_meeting(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -1808,7 +1904,8 @@ def delete_meeting(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_meeting(id)
+    token = get_user_token()
+    return get_client().delete_meeting(token, id)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -1818,7 +1915,8 @@ def list_meeting_agenda_items(meeting_id: int) -> dict[str, Any]:
     Args:
         meeting_id: ID of the meeting.
     """
-    data = get_client().list_meeting_agenda_items(meeting_id)
+    token = get_user_token()
+    data = get_client().list_meeting_agenda_items(token, meeting_id)
     return {"items": json_to_toon(data)}
 @mcp.tool(tags={"read", "primary", "openproject"})
 def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
@@ -1827,7 +1925,8 @@ def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
     Args:
         meeting_id: ID of the meeting.
     """
-    data = get_client().list_meeting_sections(meeting_id)
+    token = get_user_token()
+    data = get_client().list_meeting_sections(token, meeting_id)
     return {"items": json_to_toon(data)}
 # ─── Meeting Agenda Item Tools ────────────────────────────────────────
 
@@ -1848,8 +1947,10 @@ def create_meeting_agenda_item(
         duration_in_minutes: Duration in minutes.
         notes: Notes text in markdown format.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {
         "itemType": item_type,
+        "_links": {"meeting": {"href": f"/api/v3/meetings/{meeting_id}"}},
     }
     if title is not None:
         payload["title"] = title
@@ -1857,7 +1958,7 @@ def create_meeting_agenda_item(
         payload["durationInMinutes"] = duration_in_minutes
     if notes:
         payload["notes"] = {"format": "markdown", "raw": notes}
-    return get_client().create_meeting_agenda_item(meeting_id, payload)
+    return get_client().create_meeting_agenda_item(token, payload)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -1868,12 +1969,12 @@ def get_meeting_agenda_item_by_id(meeting_id: int, id: int) -> dict[str, Any]:
         meeting_id: ID of the meeting.
         id: ID of the resource.
     """
-    return get_client().get_meeting_agenda_item_by_id(meeting_id, id)
+    token = get_user_token()
+    return get_client().get_meeting_agenda_item_by_id(token, meeting_id, id)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
 def update_meeting_agenda_item(
-    meeting_id: int,
     id: int,
     title: str | None = None,
     duration_in_minutes: int | None = None,
@@ -1883,13 +1984,13 @@ def update_meeting_agenda_item(
     """Update a meeting agenda item.
 
     Args:
-        meeting_id: ID of the meeting.
         id: ID of the resource.
         title: Title.
         duration_in_minutes: Duration in minutes.
         notes: Notes text in markdown format.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1899,18 +2000,18 @@ def update_meeting_agenda_item(
         payload["notes"] = {"format": "markdown", "raw": notes}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_meeting_agenda_item(meeting_id, id, payload)
+    return get_client().update_meeting_agenda_item(token, id, payload)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
-def delete_meeting_agenda_item(meeting_id: int, id: int) -> dict[str, Any]:
+def delete_meeting_agenda_item(id: int) -> dict[str, Any]:
     """Delete a meeting agenda item.
 
     Args:
-        meeting_id: ID of the meeting.
         id: ID of the resource.
     """
-    return get_client().delete_meeting_agenda_item(meeting_id, id)
+    token = get_user_token()
+    return get_client().delete_meeting_agenda_item(token, id)
 
 
 # ─── Meeting Section Tools ────────────────────────────────────────────
@@ -1928,9 +2029,11 @@ def create_meeting_section(
         title: Title.
         position: Position index.
     """
-    return get_client().create_meeting_section(meeting_id, {
+    token = get_user_token()
+    return get_client().create_meeting_section(token, {
         "title": title,
         "position": position,
+        "_links": {"meeting": {"href": f"/api/v3/meetings/{meeting_id}"}},
     })
 
 
@@ -1942,12 +2045,12 @@ def get_meeting_section_by_id(meeting_id: int, id: int) -> dict[str, Any]:
         meeting_id: ID of the meeting.
         id: ID of the resource.
     """
-    return get_client().get_meeting_section_by_id(meeting_id, id)
+    token = get_user_token()
+    return get_client().get_meeting_section_by_id(token, meeting_id, id)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
 def update_meeting_section(
-    meeting_id: int,
     id: int,
     title: str | None = None,
     position: int | None = None,
@@ -1956,12 +2059,12 @@ def update_meeting_section(
     """Update a meeting section.
 
     Args:
-        meeting_id: ID of the meeting.
         id: ID of the resource.
         title: Title.
         position: Position index.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -1969,18 +2072,18 @@ def update_meeting_section(
         payload["position"] = position
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_meeting_section(meeting_id, id, payload)
+    return get_client().update_meeting_section(token, id, payload)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
-def delete_meeting_section(meeting_id: int, id: int) -> dict[str, Any]:
+def delete_meeting_section(id: int) -> dict[str, Any]:
     """Delete a meeting section.
 
     Args:
-        meeting_id: ID of the meeting.
         id: ID of the resource.
     """
-    return get_client().delete_meeting_section(meeting_id, id)
+    token = get_user_token()
+    return get_client().delete_meeting_section(token, id)
 
 
 # ─── Recurring Meeting Tools ──────────────────────────────────────────
@@ -2000,11 +2103,12 @@ def list_recurring_meetings(
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
+    token = get_user_token()
     import json as _json
     filters = None
     if project_id is not None:
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    data = get_client().list_recurring_meetings(
+    data = get_client().list_recurring_meetings(token, 
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -2036,6 +2140,7 @@ def create_recurring_meeting(
         count_limit: Maximum number of occurrences.
         end_date: Date in YYYY-MM-DD format (2026-12-31).
     """
+    token = get_user_token()
     payload: dict[str, Any] = {
         "title": title,
         "frequency": frequency,
@@ -2050,7 +2155,7 @@ def create_recurring_meeting(
         payload["countLimit"] = count_limit
     if end_date is not None:
         payload["endDate"] = end_date
-    return get_client().create_recurring_meeting(payload, ALLOW_ALL_AGGREGATE)
+    return get_client().create_recurring_meeting(token, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -2060,7 +2165,8 @@ def get_recurring_meeting_by_id(id: int, include_all_fields: bool = False) -> di
     Args:
         id: ID of the resource.
     """
-    return get_client().get_recurring_meeting_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_recurring_meeting_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -2084,6 +2190,7 @@ def update_recurring_meeting(
         interval_value: Interval count.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -2097,7 +2204,7 @@ def update_recurring_meeting(
         payload["intervalValue"] = interval_value
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_recurring_meeting(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_recurring_meeting(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -2107,7 +2214,8 @@ def delete_recurring_meeting(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_recurring_meeting(id)
+    token = get_user_token()
+    return get_client().delete_recurring_meeting(token, id)
 
 
 # ─── Time Entry Tools ─────────────────────────────────────────────────
@@ -2129,6 +2237,7 @@ def list_time_entries(
         work_package_id: ID of the work package.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
+    token = get_user_token()
     import json as _json
     filters: list[dict[str, Any]] = []
     if project_id is not None:
@@ -2136,7 +2245,7 @@ def list_time_entries(
     if work_package_id is not None:
         filters.append({"workPackage": {"operator": "=", "values": [str(work_package_id)]}})
     filter_str = _json.dumps(filters) if filters else None
-    data = get_client().list_time_entries(
+    data = get_client().list_time_entries(token, 
         page_size=page_size, offset=offset, filters=filter_str,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -2162,6 +2271,7 @@ def create_time_entry(
         spent_on: Date in YYYY-MM-DD format (2026-12-31).
         comment: Comment text.
     """
+    token = get_user_token()
     links: dict[str, Any] = {"project": {"href": f"/api/v3/projects/{project_id}"}}
     if work_package_id is not None:
         links["entity"] = {"href": f"/api/v3/work_packages/{work_package_id}"}
@@ -2175,7 +2285,7 @@ def create_time_entry(
         payload["spentOn"] = spent_on
     if comment:
         payload["comment"] = {"format": "markdown", "raw": comment}
-    return get_client().create_time_entry(payload, ALLOW_ALL_AGGREGATE)
+    return get_client().create_time_entry(token, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -2185,7 +2295,8 @@ def get_time_entry_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     Args:
         id: ID of the resource.
     """
-    return get_client().get_time_entry_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_time_entry_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -2205,6 +2316,7 @@ def update_time_entry(
         comment: Comment text.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if hours is not None:
         payload["hours"] = hours
@@ -2214,7 +2326,7 @@ def update_time_entry(
         payload["comment"] = {"format": "markdown", "raw": comment}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_time_entry(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_time_entry(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -2224,7 +2336,8 @@ def delete_time_entry(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_time_entry(id)
+    token = get_user_token()
+    return get_client().delete_time_entry(token, id)
 
 
 # ─── News Tools ───────────────────────────────────────────────────────
@@ -2244,11 +2357,12 @@ def list_news(
         project_id: ID of the project.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
+    token = get_user_token()
     import json as _json
     filters = None
     if project_id is not None:
         filters = _json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
-    data = get_client().list_news(
+    data = get_client().list_news(token, 
         page_size=page_size, offset=offset, filters=filters,
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
@@ -2270,6 +2384,7 @@ def create_news(
         summary: Short summary.
         description: Description text in markdown format.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {
         "title": title,
         "_links": {"project": {"href": f"/api/v3/projects/{project_id}"}},
@@ -2278,7 +2393,7 @@ def create_news(
         payload["summary"] = summary
     if description:
         payload["description"] = {"format": "markdown", "raw": description}
-    return get_client().create_news(payload, ALLOW_ALL_AGGREGATE)
+    return get_client().create_news(token, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"read", "primary", "openproject"})
@@ -2288,7 +2403,8 @@ def get_news_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().get_news_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_news_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -2308,6 +2424,7 @@ def update_news(
         description: Description text in markdown format.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if title is not None:
         payload["title"] = title
@@ -2317,7 +2434,7 @@ def update_news(
         payload["description"] = {"format": "markdown", "raw": description}
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_news(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_news(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "primary", "openproject"})
@@ -2327,7 +2444,8 @@ def delete_news(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_news(id)
+    token = get_user_token()
+    return get_client().delete_news(token, id)
 
 
 # ─── Grid Tools ───────────────────────────────────────────────────────
@@ -2345,7 +2463,8 @@ def list_grids(
         offset: Page offset for pagination.
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
-    data = get_client().list_grids(
+    token = get_user_token()
+    data = get_client().list_grids(token, 
         page_size=page_size, offset=offset, include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
     )
     return {"items": json_to_toon(data)}
@@ -2366,6 +2485,7 @@ def create_grid(
         column_count: Number of columns (Default: 2).
         scope_href: Scope URL for the grid.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {
         "name": page,
         "rowCount": row_count,
@@ -2375,7 +2495,7 @@ def create_grid(
     }
     if scope_href:
         payload["_links"] = {"scope": {"href": scope_href, "type": "text/html"}}
-    return get_client().create_grid(payload, ALLOW_ALL_AGGREGATE)
+    return get_client().create_grid(token, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"read", "advanced", "openproject"})
@@ -2385,7 +2505,8 @@ def get_grid_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().get_grid_by_id(id, include_all_fields=include_all_fields)
+    token = get_user_token()
+    return get_client().get_grid_by_id(token, id, include_all_fields=include_all_fields)
 
 
 @mcp.tool(tags={"write", "advanced", "openproject"})
@@ -2405,6 +2526,7 @@ def update_grid(
         widgets: List of grid widget configurations.
         lock_version: Lock version for optimistic locking.
     """
+    token = get_user_token()
     payload: dict[str, Any] = {}
     if page is not None:
         payload["page"] = page
@@ -2414,7 +2536,7 @@ def update_grid(
         payload["widgets"] = _build_widgets_payload(widgets)
     if lock_version is not None:
         payload["lockVersion"] = lock_version
-    return get_client().update_grid(id, payload, ALLOW_ALL_AGGREGATE)
+    return get_client().update_grid(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
 @mcp.tool(tags={"write", "advanced", "openproject"})
@@ -2424,7 +2546,8 @@ def delete_grid(id: int) -> dict[str, Any]:
     Args:
         id: ID of the resource.
     """
-    return get_client().delete_grid(id)
+    token = get_user_token()
+    return get_client().delete_grid(token, id)
 
 
 # ─── Job Status ────────────────────────────────────────────────────────
@@ -2436,7 +2559,8 @@ def get_job_status(job_id: str) -> dict[str, Any]:
     Args:
         job_id: ID of the async job.
     """
-    return get_client().get_job_status(job_id)
+    token = get_user_token()
+    return get_client().get_job_status(token, job_id)
 
 
 # ─── Health check ─────────────────────────────────────────────────────
@@ -2444,6 +2568,7 @@ def get_job_status(job_id: str) -> dict[str, Any]:
 @mcp.tool(tags={"read", "advanced", "openproject"})
 def health_check() -> dict[str, str]:
     """Basic server health check."""
+    token = get_user_token()
     return {"status": "ok"}
 
 
@@ -2456,9 +2581,11 @@ def main() -> None:
         app = mcp.http_app()
     else:
         app = mcp.http_app(stateless_http=True)
+    app = AuthMiddleware(app)
     print(f"Starting OpenProject MCP server on port {port} {'stateful' if IS_STATEFUL else 'stateless'}")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 
 
 if __name__ == "__main__":
     main()
+    token = get_user_token()
