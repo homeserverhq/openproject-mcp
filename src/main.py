@@ -8,6 +8,8 @@ from typing import Any, Optional
 
 from fastmcp import FastMCP
 
+from mcp.types import ToolAnnotations
+
 from toon_mcp import json_to_toon
 
 from src.client import OpenProjectClient, ALLOW_ALL_AGGREGATE
@@ -327,7 +329,9 @@ def _build_widgets_payload(widgets: list[GridWidget]) -> list[dict[str, Any]]:
 
 # ─── Work Package Tools ───────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Work Packages", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_work_packages(
     page_size: int = 20,
     offset: int = 1,
@@ -365,7 +369,9 @@ def list_work_packages(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Work Package", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_work_package(
     subject: str,
     project_id: int,
@@ -419,7 +425,9 @@ def create_work_package(
     return get_client().create_work_package(token, _build_wp_payload(data), ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Get Work Package By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_work_package_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single work package by ID.
 
@@ -430,7 +438,9 @@ def get_work_package_by_id(id: int, include_all_fields: bool = False) -> dict[st
     return get_client().get_work_package_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Work Package", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_work_package(
     id: int,
     subject: str | None = None,
@@ -509,7 +519,9 @@ def update_work_package(
     return get_client().update_work_package(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Work Package", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_work_package(id: int) -> dict[str, Any]:
     """Delete a work package.
 
@@ -520,7 +532,9 @@ def delete_work_package(id: int) -> dict[str, Any]:
     return get_client().delete_work_package(token, id)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Work Package Activities", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_work_package_activities(
     id: int,
     page_size: int = 20,
@@ -537,7 +551,9 @@ def get_work_package_activities(
     return get_client().get_work_package_activities(token, id, page_size, offset)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Add Work Package Comment", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def add_work_package_comment(id: int, comment: str) -> dict[str, Any]:
     """Add a comment to a work package.
 
@@ -549,7 +565,9 @@ def add_work_package_comment(id: int, comment: str) -> dict[str, Any]:
     return get_client().add_work_package_comment(token, id, comment)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Work Package Relations", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_work_package_relations(id: int) -> dict[str, Any]:
     """List relations for a work package.
 
@@ -560,7 +578,9 @@ def get_work_package_relations(id: int) -> dict[str, Any]:
     return get_client().get_work_package_relations(token, id)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Work Package Relation", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_work_package_relation(
     id: int,
     target_id: int,
@@ -580,7 +600,9 @@ def create_work_package_relation(
     )
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Work Package Watchers", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_work_package_watchers(id: int) -> dict[str, Any]:
     """List watchers of a work package.
 
@@ -591,7 +613,9 @@ def get_work_package_watchers(id: int) -> dict[str, Any]:
     return get_client().get_work_package_watchers(token, id)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Add Work Package Watcher", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def add_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     """Add a watcher to a work package.
 
@@ -603,7 +627,9 @@ def add_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     return get_client().add_work_package_watcher(token, id, user_id)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Remove Work Package Watcher", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def remove_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     """Remove a watcher from a work package.
 
@@ -615,7 +641,9 @@ def remove_work_package_watcher(id: int, user_id: int) -> dict[str, Any]:
     return get_client().remove_work_package_watcher(token, id, user_id)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Work Package Attachments", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_work_package_attachments(
     id: int,
     page_size: int = 20,
@@ -633,7 +661,9 @@ def list_work_package_attachments(
     return {"items": json_to_toon(data)}
 # ─── Project Tools ────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Projects", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_projects(
     page_size: int = 20,
     offset: int = 1,
@@ -653,7 +683,9 @@ def list_projects(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Create Project", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_project(
     name: str,
     identifier: str,
@@ -696,7 +728,9 @@ def create_project(
     return get_client().create_project(token, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Get Project By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_project_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single project by ID.
 
@@ -707,7 +741,9 @@ def get_project_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     return get_client().get_project_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Project", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_project(
     id: int,
     name: str | None = None,
@@ -753,7 +789,9 @@ def update_project(
     return get_client().update_project(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Project", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_project(id: int) -> dict[str, Any]:
     """Delete a project.
 
@@ -764,7 +802,9 @@ def delete_project(id: int) -> dict[str, Any]:
     return get_client().delete_project(token, id)
 
 
-@mcp.tool(tags={"write", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Copy Project", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def copy_project(
     id: int,
     name: str | None = None,
@@ -788,7 +828,9 @@ def copy_project(
 
 # ─── Version Tools ────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Versions", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_versions(
     page_size: int = 20,
     offset: int = 1,
@@ -808,7 +850,9 @@ def list_versions(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Version", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_version(
     name: str,
     project_id: int,
@@ -845,7 +889,9 @@ def create_version(
     return get_client().create_version(token, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Get Version By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_version_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single version by ID.
 
@@ -856,7 +902,9 @@ def get_version_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     return get_client().get_version_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Version", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_version(
     id: int,
     name: str | None = None,
@@ -898,7 +946,9 @@ def update_version(
     return get_client().update_version(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Version", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_version(id: int) -> dict[str, Any]:
     """Delete a version.
 
@@ -911,7 +961,9 @@ def delete_version(id: int) -> dict[str, Any]:
 
 # ─── Membership Tools ─────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Memberships", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_memberships(
     page_size: int = 20,
     offset: int = 1,
@@ -938,7 +990,9 @@ def list_memberships(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Membership", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_membership(
     project_id: int,
     principal_id: int,
@@ -956,7 +1010,9 @@ def create_membership(
     return get_client().create_membership(token, _build_membership_payload(data), ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Membership By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_membership_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single membership by ID.
 
@@ -967,7 +1023,9 @@ def get_membership_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     return get_client().get_membership_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Membership", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_membership(
     id: int,
     project_id: int | None = None,
@@ -998,7 +1056,9 @@ def update_membership(
     return get_client().update_membership(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Membership", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_membership(id: int) -> dict[str, Any]:
     """Delete a membership.
 
@@ -1011,7 +1071,9 @@ def delete_membership(id: int) -> dict[str, Any]:
 
 # ─── User Tools ───────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Users", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_users(
     page_size: int = 20,
     offset: int = 1,
@@ -1034,7 +1096,9 @@ def list_users(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Get User By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_user_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single user by ID.
 
@@ -1045,7 +1109,9 @@ def get_user_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     return get_client().get_user_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create User", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_user(
     login: str,
     first_name: str,
@@ -1073,7 +1139,9 @@ def create_user(
     }, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update User", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_user(
     id: int,
     first_name: str | None = None,
@@ -1107,7 +1175,9 @@ def update_user(
     return get_client().update_user(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete User", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_user(id: int) -> dict[str, Any]:
     """Delete a user.
 
@@ -1120,7 +1190,9 @@ def delete_user(id: int) -> dict[str, Any]:
 
 # ─── Group Tools ──────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Groups", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_groups(
     page_size: int = 20,
     offset: int = 1,
@@ -1140,7 +1212,9 @@ def list_groups(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Group By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_group_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single group by ID.
 
@@ -1151,7 +1225,9 @@ def get_group_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]
     return get_client().get_group_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Group", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_group(
     name: str,
     member_ids: list[int] | None = None,
@@ -1171,7 +1247,9 @@ def create_group(
     return get_client().create_group(token, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Group", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_group(
     id: int,
     name: str | None = None,
@@ -1195,7 +1273,9 @@ def update_group(
     return get_client().update_group(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Group", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_group(id: int) -> dict[str, Any]:
     """Delete a group.
 
@@ -1208,7 +1288,9 @@ def delete_group(id: int) -> dict[str, Any]:
 
 # ─── Status Tools ─────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Statuses", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_statuses(
     page_size: int = 20,
     offset: int = 1,
@@ -1228,7 +1310,9 @@ def list_statuses(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Get Status By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_status_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single status by ID.
 
@@ -1241,7 +1325,9 @@ def get_status_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any
 
 # ─── Type Tools ───────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Types", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_types(
     page_size: int = 20,
     offset: int = 1,
@@ -1261,7 +1347,9 @@ def list_types(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Get Type By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single type by ID.
 
@@ -1274,7 +1362,9 @@ def get_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
 
 # ─── Priority Tools ───────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Priorities", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_priorities(
     page_size: int = 20,
     offset: int = 1,
@@ -1294,7 +1384,9 @@ def list_priorities(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Get Priority By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_priority_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single priority by ID.
 
@@ -1307,7 +1399,9 @@ def get_priority_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
 
 # ─── Role Tools ───────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Roles", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_roles(
     page_size: int = 20,
     offset: int = 1,
@@ -1327,7 +1421,9 @@ def list_roles(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Get Role By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_role_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single role by ID.
 
@@ -1340,7 +1436,9 @@ def get_role_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
 
 # ─── Principal Tools ──────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Principals", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_principals(
     page_size: int = 20,
     offset: int = 1,
@@ -1363,7 +1461,9 @@ def list_principals(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Principal By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_principal_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single principal by ID.
 
@@ -1376,7 +1476,9 @@ def get_principal_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
 
 # ─── Category Tools ───────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Category By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_category_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single category by ID.
 
@@ -1387,7 +1489,9 @@ def get_category_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     return get_client().get_category_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Project Categories", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_project_categories(
     project_id: int,
     page_size: int = 20,
@@ -1405,7 +1509,9 @@ def list_project_categories(
     return {"items": json_to_toon(data)}
 # ─── Wiki Page Tools ──────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Get Wiki Page By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_wiki_page_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single wiki page by ID.
 
@@ -1418,7 +1524,9 @@ def get_wiki_page_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
 
 # ─── Budget Tools ─────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Get Budget By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_budget_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single budget by ID.
 
@@ -1429,7 +1537,9 @@ def get_budget_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any
     return get_client().get_budget_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="List Project Budgets", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_project_budgets(
     project_id: int,
     page_size: int = 20,
@@ -1445,7 +1555,9 @@ def list_project_budgets(
     token = get_user_token()
     data = get_client().list_project_budgets(token, project_id, page_size, offset)
     return {"items": json_to_toon(data)}
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Get Cost Type By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_cost_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single cost type by ID.
 
@@ -1458,7 +1570,9 @@ def get_cost_type_by_id(id: int, include_all_fields: bool = False) -> dict[str, 
 
 # ─── Notification Tools ───────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Notifications", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_notifications(
     page_size: int = 20,
     offset: int = 1,
@@ -1481,7 +1595,9 @@ def list_notifications(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Notification By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_notification_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single notification by ID.
 
@@ -1494,7 +1610,9 @@ def get_notification_by_id(id: int, include_all_fields: bool = False) -> dict[st
 
 # ─── Days / Calendar Tools ────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Days", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_days(
     page_size: int = 20,
     offset: int = 1,
@@ -1528,7 +1646,9 @@ def list_days(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Non Working Days", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_non_working_days(
     page_size: int = 20,
     offset: int = 1,
@@ -1558,7 +1678,9 @@ def list_non_working_days(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Non Working Day By Date", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_non_working_day_by_date(date: str, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single non-working day by date.
 
@@ -1570,7 +1692,9 @@ def get_non_working_day_by_date(date: str, include_all_fields: bool = False) -> 
     return get_client().get_non_working_day_by_date(token, date, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="List Week Days", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_week_days(
     page_size: int = 20,
     offset: int = 1,
@@ -1590,7 +1714,9 @@ def list_week_days(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "basic", "openproject"})
+@mcp.tool(
+    tags={"basic", "openproject"}, annotations=ToolAnnotations(title="Get Week Day By Number", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_week_day_by_number(day: str, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single week day by name.
 
@@ -1604,7 +1730,9 @@ def get_week_day_by_number(day: str, include_all_fields: bool = False) -> dict[s
 
 # ─── Attachment Tools (metadata only) ────────────────────────────────
 
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Get Attachment By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_attachment_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get attachment metadata by ID.
 
@@ -1617,7 +1745,9 @@ def get_attachment_by_id(id: int, include_all_fields: bool = False) -> dict[str,
 
 # ─── Document Tools ───────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Documents", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_documents(
     page_size: int = 20,
     offset: int = 1,
@@ -1644,7 +1774,9 @@ def list_documents(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Document By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_document_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single document by ID.
 
@@ -1655,7 +1787,9 @@ def get_document_by_id(id: int, include_all_fields: bool = False) -> dict[str, A
     return get_client().get_document_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Update Document", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_document(
     id: int,
     title: str | None = None,
@@ -1683,7 +1817,9 @@ def update_document(
 
 # ─── Emoji Reaction Tools ─────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="List Emoji Reactions", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_emoji_reactions(activity_id: int) -> dict[str, Any]:
     """List emoji reactions on an activity.
 
@@ -1693,7 +1829,9 @@ def list_emoji_reactions(activity_id: int) -> dict[str, Any]:
     token = get_user_token()
     data = get_client().list_emoji_reactions(token, activity_id)
     return {"items": json_to_toon(data)}
-@mcp.tool(tags={"write", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Toggle Emoji Reaction", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
     """Toggle an emoji reaction on an activity (add or remove).
 
@@ -1712,7 +1850,9 @@ def toggle_emoji_reaction(activity_id: int, reaction: str) -> dict[str, Any]:
 
 # ─── Reminder Tools ───────────────────────────────────────────────────
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Reminder", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_reminder(
     work_package_id: int,
     remind_at: str,
@@ -1732,7 +1872,9 @@ def create_reminder(
     return get_client().create_reminder(token, work_package_id, payload)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Reminders", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_reminders(
     page_size: int = 20,
     offset: int = 1,
@@ -1752,7 +1894,9 @@ def list_reminders(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Reminder", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_reminder(
     id: int,
     work_package_id: int | None = None,
@@ -1778,7 +1922,9 @@ def update_reminder(
     return get_client().update_reminder(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Reminder", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_reminder(id: int) -> dict[str, Any]:
     """Delete a reminder.
 
@@ -1791,7 +1937,9 @@ def delete_reminder(id: int) -> dict[str, Any]:
 
 # ─── Meeting Tools ────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Meetings", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_meetings(
     page_size: int = 20,
     offset: int = 1,
@@ -1818,7 +1966,9 @@ def list_meetings(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Meeting", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_meeting(
     title: str,
     project_id: int,
@@ -1848,7 +1998,9 @@ def create_meeting(
     }, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Meeting By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single meeting by ID.
 
@@ -1859,7 +2011,9 @@ def get_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, An
     return get_client().get_meeting_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Meeting", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_meeting(
     id: int,
     title: str | None = None,
@@ -1897,7 +2051,9 @@ def update_meeting(
     return get_client().update_meeting(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Meeting", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_meeting(id: int) -> dict[str, Any]:
     """Delete a meeting.
 
@@ -1908,7 +2064,9 @@ def delete_meeting(id: int) -> dict[str, Any]:
     return get_client().delete_meeting(token, id)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Meeting Agenda Items", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_meeting_agenda_items(meeting_id: int) -> dict[str, Any]:
     """List agenda items for a meeting.
 
@@ -1918,7 +2076,9 @@ def list_meeting_agenda_items(meeting_id: int) -> dict[str, Any]:
     token = get_user_token()
     data = get_client().list_meeting_agenda_items(token, meeting_id)
     return {"items": json_to_toon(data)}
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Meeting Sections", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
     """List sections for a meeting.
 
@@ -1930,7 +2090,9 @@ def list_meeting_sections(meeting_id: int) -> dict[str, Any]:
     return {"items": json_to_toon(data)}
 # ─── Meeting Agenda Item Tools ────────────────────────────────────────
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Meeting Agenda Item", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_meeting_agenda_item(
     meeting_id: int,
     item_type: str = "simple",
@@ -1961,7 +2123,9 @@ def create_meeting_agenda_item(
     return get_client().create_meeting_agenda_item(token, payload)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Meeting Agenda Item By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_meeting_agenda_item_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     """Get a single meeting agenda item by ID.
 
@@ -1973,7 +2137,9 @@ def get_meeting_agenda_item_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     return get_client().get_meeting_agenda_item_by_id(token, meeting_id, id)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Meeting Agenda Item", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_meeting_agenda_item(
     id: int,
     title: str | None = None,
@@ -2003,7 +2169,9 @@ def update_meeting_agenda_item(
     return get_client().update_meeting_agenda_item(token, id, payload)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Meeting Agenda Item", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_meeting_agenda_item(id: int) -> dict[str, Any]:
     """Delete a meeting agenda item.
 
@@ -2016,7 +2184,9 @@ def delete_meeting_agenda_item(id: int) -> dict[str, Any]:
 
 # ─── Meeting Section Tools ────────────────────────────────────────────
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Meeting Section", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_meeting_section(
     meeting_id: int,
     title: str,
@@ -2037,7 +2207,9 @@ def create_meeting_section(
     })
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Meeting Section By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_meeting_section_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     """Get a single meeting section by ID.
 
@@ -2049,7 +2221,9 @@ def get_meeting_section_by_id(meeting_id: int, id: int) -> dict[str, Any]:
     return get_client().get_meeting_section_by_id(token, meeting_id, id)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Meeting Section", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_meeting_section(
     id: int,
     title: str | None = None,
@@ -2075,7 +2249,9 @@ def update_meeting_section(
     return get_client().update_meeting_section(token, id, payload)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Meeting Section", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_meeting_section(id: int) -> dict[str, Any]:
     """Delete a meeting section.
 
@@ -2088,7 +2264,9 @@ def delete_meeting_section(id: int) -> dict[str, Any]:
 
 # ─── Recurring Meeting Tools ──────────────────────────────────────────
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Recurring Meetings", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_recurring_meetings(
     page_size: int = 20,
     offset: int = 1,
@@ -2115,7 +2293,9 @@ def list_recurring_meetings(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Recurring Meeting", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_recurring_meeting(
     project_id: int,
     title: str,
@@ -2158,7 +2338,9 @@ def create_recurring_meeting(
     return get_client().create_recurring_meeting(token, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Recurring Meeting By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_recurring_meeting_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single recurring meeting by ID.
 
@@ -2169,7 +2351,9 @@ def get_recurring_meeting_by_id(id: int, include_all_fields: bool = False) -> di
     return get_client().get_recurring_meeting_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Recurring Meeting", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_recurring_meeting(
     id: int,
     title: str | None = None,
@@ -2207,7 +2391,9 @@ def update_recurring_meeting(
     return get_client().update_recurring_meeting(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Recurring Meeting", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_recurring_meeting(id: int) -> dict[str, Any]:
     """Delete a recurring meeting.
 
@@ -2220,7 +2406,9 @@ def delete_recurring_meeting(id: int) -> dict[str, Any]:
 
 # ─── Time Entry Tools ─────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List Time Entries", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_time_entries(
     page_size: int = 20,
     offset: int = 1,
@@ -2252,7 +2440,9 @@ def list_time_entries(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create Time Entry", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_time_entry(
     project_id: int,
     hours: str,
@@ -2288,7 +2478,9 @@ def create_time_entry(
     return get_client().create_time_entry(token, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get Time Entry By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_time_entry_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single time entry by ID.
 
@@ -2299,7 +2491,9 @@ def get_time_entry_by_id(id: int, include_all_fields: bool = False) -> dict[str,
     return get_client().get_time_entry_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update Time Entry", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_time_entry(
     id: int,
     hours: str | None = None,
@@ -2329,7 +2523,9 @@ def update_time_entry(
     return get_client().update_time_entry(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete Time Entry", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_time_entry(id: int) -> dict[str, Any]:
     """Delete a time entry.
 
@@ -2342,7 +2538,9 @@ def delete_time_entry(id: int) -> dict[str, Any]:
 
 # ─── News Tools ───────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="List News", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_news(
     page_size: int = 20,
     offset: int = 1,
@@ -2369,7 +2567,9 @@ def list_news(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Create News", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_news(
     project_id: int,
     title: str,
@@ -2396,7 +2596,9 @@ def create_news(
     return get_client().create_news(token, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"read", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Get News By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_news_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single news item by ID.
 
@@ -2407,7 +2609,9 @@ def get_news_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     return get_client().get_news_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Update News", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_news(
     id: int,
     title: str | None = None,
@@ -2437,7 +2641,9 @@ def update_news(
     return get_client().update_news(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "primary", "openproject"})
+@mcp.tool(
+    tags={"primary", "openproject"}, annotations=ToolAnnotations(title="Delete News", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_news(id: int) -> dict[str, Any]:
     """Delete a news item.
 
@@ -2450,7 +2656,9 @@ def delete_news(id: int) -> dict[str, Any]:
 
 # ─── Grid Tools ───────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="List Grids", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def list_grids(
     page_size: int = 20,
     offset: int = 1,
@@ -2470,7 +2678,9 @@ def list_grids(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"write", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Create Grid", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 def create_grid(
     page: str,
     row_count: int = 3,
@@ -2498,7 +2708,9 @@ def create_grid(
     return get_client().create_grid(token, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Get Grid By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_grid_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     """Get a single grid by ID.
 
@@ -2509,7 +2721,9 @@ def get_grid_by_id(id: int, include_all_fields: bool = False) -> dict[str, Any]:
     return get_client().get_grid_by_id(token, id, include_all_fields=include_all_fields)
 
 
-@mcp.tool(tags={"write", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Update Grid", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def update_grid(
     id: int,
     page: str | None = None,
@@ -2539,7 +2753,9 @@ def update_grid(
     return get_client().update_grid(token, id, payload, ALLOW_ALL_AGGREGATE)
 
 
-@mcp.tool(tags={"write", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Delete Grid", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 def delete_grid(id: int) -> dict[str, Any]:
     """Delete a grid.
 
@@ -2552,7 +2768,9 @@ def delete_grid(id: int) -> dict[str, Any]:
 
 # ─── Job Status ────────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Get Job Status", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def get_job_status(job_id: str) -> dict[str, Any]:
     """Get the status of an async job.
 
@@ -2565,7 +2783,9 @@ def get_job_status(job_id: str) -> dict[str, Any]:
 
 # ─── Health check ─────────────────────────────────────────────────────
 
-@mcp.tool(tags={"read", "advanced", "openproject"})
+@mcp.tool(
+    tags={"advanced", "openproject"}, annotations=ToolAnnotations(title="Health Check", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 def health_check() -> dict[str, str]:
     """Basic server health check."""
     token = get_user_token()
