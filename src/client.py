@@ -134,8 +134,14 @@ class OpenProjectClient:
         )
 
     def _headers(self, api_key: str) -> dict[str, str]:
+        token = (api_key or "").strip()
+        if not token:
+            raise ValueError(
+                "Missing OpenProject API token; send 'Authorization: Bearer <token>'"
+            )
+        basic = base64.b64encode(f"apikey:{token}".encode("utf-8")).decode("ascii")
         return {
-            "Authorization": f"Basic {api_key}",
+            "Authorization": f"Basic {basic}",
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
